@@ -1,10 +1,10 @@
 # **PySpeak**
 
-**PySpeak** is a VoIP (Voice over IP) client that allows users to communicate via voice and text in real time. Built with Python and PyQt, PySpeak offers a modern and user-friendly GUI to connect to servers and participate in voice chats.
+**PySpeak** is a VoIP (Voice over IP) application that allows users to communicate via voice and text in real time. Built with Python and PyQt, PySpeak offers a modern and user-friendly GUI for clients to connect to servers and participate in voice chats. This project is inspired by and aims to replicate features of TeamSpeak. Please note that PySpeak is in an early development stage.
 
 ## **Features**
 
-- **Connect to Servers**: Connect to specific servers using IP addresses and port numbers.
+- **Client and Server**: Are under development, client-server architecture for real-time communication.
 - **Voice Chat**: Participate in real-time voice chats with other users.
 - **Text Chat**: Send and receive text messages.
 - **Settings**: Customize audio settings, microphone, and speaker volume.
