@@ -1,0 +1,35 @@
+{
+    "server": {
+        "server_address": "localhost",
+        "port": 8765,
+        "welcome_message": "Welcome to the server! Enjoy your stay.",
+        "server_name": "PySpeak test-server",
+        "server_password": null,
+        "max_users": 100
+    },
+    "database": {
+        "db_file": "DB/pyspeak.db"
+    },
+    "logging": {
+        "level": "INFO",
+        "log_file": "server.log"
+    },
+    "security": {
+        "use_ssl": false,
+        "ssl_certfile": "cert/cert.pem",
+        "ssl_keyfile": "cert/key.pem"
+    },
+    "rate_limiting": {
+        "enabled": true,
+        "max_requests_per_minute": 60
+    },
+    "rooms": {
+        "default_room": "Lobby",
+        "default_room_password": null
+    },
+    "backup": {
+        "enabled": true,
+        "backup_interval_minutes": 1440,  
+        "backup_folder": "backups/"
+    }
+}

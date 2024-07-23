@@ -1,0 +1,13 @@
+===============================================================================
+                        PySpeak - Client Changelog
+                              Copyright None
+                          https://www.PySpeak.com
+===============================================================================
+   + Added feature or noticeable improvement
+   - Bug fix or something removed
+   * Changed or Information
+   ! Important - Take note!
+===============================================================================
+
+               === Client Release 1.0.0-beta1 - 21 july 2024 ===
+* Initial beta release
