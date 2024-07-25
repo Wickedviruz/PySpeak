@@ -37,3 +37,35 @@ Traceback (most recent call last):
     cursor.execute("INSERT INTO users (uid, username, password, role, default_identity) VALUES (?, ?, ?, ?, ?)",
 sqlite3.OperationalError: table users has no column named password
 2024-07-25 11:59:04,994 - INFO - connection closed
+2024-07-25 17:33:23,621 - INFO - Admin created with username: admin and password: 5JoSdpQGoFxAljo-TjZp4w
+2024-07-25 17:33:23,625 - INFO - Privilege key for server admin: ezvs77xZmp3cLxWMaAUufBZkzYvjSQLr
+2024-07-25 17:43:45,368 - INFO - Server started
+2024-07-25 17:45:42,291 - INFO - Server started
+2024-07-25 17:46:24,872 - INFO - Server started
+2024-07-25 17:47:11,554 - INFO - Server started
+2024-07-25 17:47:11,871 - INFO - Privilege key for server admin: SYYnH49wduTx1LXg8Y8Cd87_I7reuOuq
+2024-07-25 17:47:11,930 - INFO - server listening on [::1]:8765
+2024-07-25 17:47:11,930 - INFO - server listening on 127.0.0.1:8765
+2024-07-25 17:48:41,709 - INFO - connection open
+2024-07-25 17:48:50,860 - INFO - connection closed
+2024-07-25 17:48:59,220 - INFO - connection open
+2024-07-25 17:49:02,838 - INFO - connection closed
+2024-07-25 19:04:47,682 - INFO - connection open
+2024-07-25 19:04:50,289 - INFO - connection closed
+2024-07-25 19:04:51,924 - INFO - connection open
+2024-07-25 19:05:03,746 - INFO - connection closed
+2024-07-25 19:06:20,655 - INFO - Server started
+2024-07-25 19:06:38,775 - INFO - Server started
+2024-07-25 19:07:44,252 - INFO - Server started
+2024-07-25 19:08:52,989 - INFO - Server started
+2024-07-25 19:14:46,312 - INFO - Server started
+2024-07-25 19:14:46,630 - INFO - server listening on [::1]:8765
+2024-07-25 19:14:46,630 - INFO - server listening on 127.0.0.1:8765
+2024-07-25 19:16:13,259 - INFO - Server started
+2024-07-25 19:16:13,563 - INFO - server listening on [::1]:8765
+2024-07-25 19:16:13,563 - INFO - server listening on 127.0.0.1:8765
+2024-07-25 19:16:52,903 - INFO - Server started
+2024-07-25 19:16:53,228 - INFO - server listening on [::1]:8765
+2024-07-25 19:16:53,229 - INFO - server listening on 127.0.0.1:8765
+2024-07-25 19:17:04,275 - INFO - connection open
+2024-07-25 19:17:38,824 - INFO - connection closed

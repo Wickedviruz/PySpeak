@@ -1027,3 +1027,37 @@ class AboutPyQT(QDialog):
 
         layout.addLayout(button_layout)
         self.setLayout(layout)
+
+class PyLicense(QDialog):
+    def __init__(self, PyLicense, parent=None):
+        super().__init__(parent)
+        self.PyLicense = PyLicense
+        self.initUI()
+
+    def initUI(self):
+        self.setWindowTitle('PySpeak MIT License')
+        self.setGeometry(100, 100, 700, 500)
+
+        layout = QVBoxLayout()
+
+        # QTextEdit för att visa PyQt-innehållet
+        self.textEdit = QTextEdit(self)
+        self.textEdit.setReadOnly(True)
+        self.textEdit.setLineWrapMode(QTextEdit.NoWrap)  # Disable word wrap
+        self.textEdit.setFontFamily("Courier")  # Use a fixed-width font
+        layout.addWidget(self.textEdit)
+
+        # Läsa och visa PyQt.txt-innehållet
+        with open(self.PyLicense, 'r') as file:
+            self.textEdit.setPlainText(file.read())
+
+        # Stäng-knapp
+        button_layout = QHBoxLayout()
+        button_layout.addStretch()
+        self.closeButton = QPushButton('Close', self)
+        self.closeButton.setFixedSize(60, 25)
+        self.closeButton.clicked.connect(self.accept)
+        button_layout.addWidget(self.closeButton)
+
+        layout.addLayout(button_layout)
+        self.setLayout(layout)

@@ -5,6 +5,7 @@ import sqlite3
 import uuid
 import logging
 import ssl
+from database import init_db, ensure_default_rooms, create_initial_admin, create_initial_privilege_key
 
 # Local imports
 import database
@@ -13,14 +14,14 @@ import config_loader
 
 clients = {}
 
-#loads the config file
+# loads the config file
 config = config_loader.load_config('config.json')
 
 # Extract server settings
 server_address = config.get('server', {}).get('server_address', 'localhost')
 port = config.get('server', {}).get('port', 8765)
 server_password = config.get('server', {}).get('server_password', None)
-server_name= config.get('server', {}).get('server_name', 'PyServ')
+server_name = config.get('server', {}).get('server_name', 'PyServ')
 welcome_message = config.get('server', {}).get('welcome_message', "Welcome to the server! Enjoy your stay.")
 max_users = config.get('server', {}).get('max_users', 100)
 
@@ -108,6 +109,8 @@ async def process_message(client_id, data):
         await handle_ban(client_id, data)
     elif message_type == 'kick':
         await handle_kick(client_id, data)
+    elif message_type == 'use_privilege_key':
+        await handle_use_privilege_key(client_id, data)
 
 async def handle_join(client_id, data, first_time=False):
     username = data['username']
@@ -128,8 +131,8 @@ async def handle_join(client_id, data, first_time=False):
 
     if not user:
         # Skapa ny användare om det inte finns
-        cursor.execute("INSERT INTO users (uid, username, password, role, default_identity) VALUES (?, ?, ?, ?, ?)",
-                       (uid, username, 'default_password', 'user', True))
+        cursor.execute("INSERT INTO users (uid, username, password, role, is_superadmin) VALUES (?, ?, ?, ?, ?)",
+                       (uid, username, 'default_password', 'user', False))
         conn.commit()
         cursor.execute("SELECT * FROM users WHERE uid=?", (uid,))
         user = cursor.fetchone()
@@ -346,10 +349,28 @@ async def handle_kick(client_id, data):
         await clients[client_id]['websocket'].send(json.dumps({'type': 'error', 'message': f"User {username_to_kick} not found."}))
     conn.close()
 
+async def handle_use_privilege_key(client_id, data):
+    privilege_key = data['key']
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT role FROM privilege_keys WHERE key=?", (privilege_key,))
+    result = cursor.fetchone()
+
+    if result:
+        role = result[0]
+        cursor.execute("UPDATE users SET role=? WHERE uid=?", (role, clients[client_id]['uid']))
+        conn.commit()
+        await clients[client_id]['websocket'].send(json.dumps({'type': 'info', 'message': f'Privilege key used. Role updated to {role}.'}))
+    else:
+        await clients[client_id]['websocket'].send(json.dumps({'type': 'error', 'message': 'Invalid privilege key.'}))
+
+    conn.close()
+
 async def is_admin(client_id):
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT role FROM users WHERE username=?", (clients[client_id]['username'],))
+    cursor.execute("SELECT role FROM users WHERE uid=?", (clients[client_id]['uid'],))
     role = cursor.fetchone()[0]
     conn.close()
     return role == 'admin'
@@ -381,6 +402,8 @@ async def update_room_list():
 async def main():
     database.init_db(db_file)
     database.ensure_default_rooms(db_file)  # Se till att standardrum finns
+    database.create_initial_admin(db_file)
+    database.create_initial_privilege_key(db_file)
 
     if use_ssl:
         ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)

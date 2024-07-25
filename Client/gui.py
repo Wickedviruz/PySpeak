@@ -16,7 +16,18 @@ from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import Qt, QUrl
 
 #Local imports
-from dialogs import ConnectDialog, ManageBookmarksDialog, ConnectionInfoDialog, SettingsDialog, PasswordDialog, ChangelogDialog, AboutPySpeak, AboutPyQT, IdentitiesDialog, UsePrivilegeKey
+from dialogs import (
+    ConnectDialog,
+    ManageBookmarksDialog, 
+    ConnectionInfoDialog, 
+    SettingsDialog, 
+    PasswordDialog, 
+    ChangelogDialog, 
+    AboutPySpeak, 
+    AboutPyQT, 
+    IdentitiesDialog, 
+    UsePrivilegeKey,
+    PyLicense)
 from settings import load_bookmarks, save_bookmarks, load_default_identity, db_file
 
 class VoiceChatClient(QMainWindow):
@@ -33,6 +44,7 @@ class VoiceChatClient(QMainWindow):
         self.refresh_bookmarks_menu()
         self.current_identity = load_default_identity()
         self.changelog_file = 'changelog.txt'
+        self.PyLicense = 'assets/Pylicense.ini'
         self.pyqt5_infoFile = 'assets/pyqt5_info.ini'
         self.pySpeak_infoFile = 'assets/pySpeak_info.ini'
 
@@ -155,6 +167,7 @@ class VoiceChatClient(QMainWindow):
         helpMenu.addAction(changelogAction)
 
         licenseAction = QAction(QIcon('assets/img/default_colored_2014/changelog.svg'), 'View license', self)
+        licenseAction.triggered.connect(self.show_PyLicense_dialog)
         helpMenu.addAction(licenseAction)
 
         splitter_top = QSplitter()
@@ -215,11 +228,11 @@ class VoiceChatClient(QMainWindow):
         if self.muteMicButton.isChecked():
             self.mute_mic()
             self.muteMicButton.setIcon(QIcon('assets/img/default_colored_2014/input_muted.svg'))
-            self.play_sound('assets/sound/mic_muted.wav')
+            self.play_sound('assets/sound/mic_muted.mp3')
         else:
             self.unmute_mic()
             self.muteMicButton.setIcon(QIcon('assets/img/default_colored_2014/capture.svg'))
-            self.play_sound('assets/sound/mic_activated.wav')
+            self.play_sound('assets/sound/mic_activated.mp3')
 
     def mute_mic(self):
         if self.audio_thread is not None:
@@ -235,11 +248,11 @@ class VoiceChatClient(QMainWindow):
         if self.muteSpeakerButton.isChecked():
             self.mute_speaker()
             self.muteSpeakerButton.setIcon(QIcon('assets/img/default_colored_2014/output_muted.svg'))
-            self.play_sound('assets/sound/sound_muted.wav')
+            self.play_sound('assets/sound/sound_muted.mp3')
         else:
             self.unmute_speaker()
             self.muteSpeakerButton.setIcon(QIcon('assets/img/default_colored_2014/volume.svg'))
-            self.play_sound('assets/sound/sound_resumed.wav')
+            self.play_sound('assets/sound/sound_resumed.mp3')
 
     def mute_speaker(self):
         self.speaker_muted = True
@@ -295,7 +308,6 @@ class VoiceChatClient(QMainWindow):
             server_address, password, name = dialog.get_connection_info()
             uid = self.get_uid_for_user(name)  # Hämta UID för användaren
             asyncio.ensure_future(self.connect_to_server(server_address, password, name, uid))
-
 
     #Bookmarks management
     def show_manage_bookmarks_dialog(self):
@@ -390,9 +402,14 @@ class VoiceChatClient(QMainWindow):
     def open_website(self):
         webbrowser.open('https://www.aftonbladet.se')
 
-    # Show about PyQt dialog
+    # Show about PySpeak dialog
     def show_aboutPySpeak_dialog(self):
         dialog = AboutPySpeak(self.pySpeak_infoFile, self)
+        dialog.exec_()
+
+    # Show about PyLicens dialog
+    def show_PyLicense_dialog(self):
+        dialog = PyLicense(self.PyLicense, self)
         dialog.exec_()
 
     # Show about PyQt dialog
@@ -418,7 +435,7 @@ class VoiceChatClient(QMainWindow):
             self.ping = 0
             self.connectionInfoAction.setEnabled(True)
             self.update_bookmark_actions()
-            self.play_sound('assets/sound/connected.wav')
+            self.play_sound('assets/sound/connected.mp3')
 
             asyncio.ensure_future(self.receive_messages())
         except Exception as e:
@@ -430,7 +447,7 @@ class VoiceChatClient(QMainWindow):
             self.websocket = None
             self.connectionInfoAction.setEnabled(False)
             self.log_message("Disconnected from server")
-            self.play_sound('assets/sound/disconnected.wav')
+            self.play_sound('assets/sound/disconnected.mp3')
             self.update_bookmark_actions()
             self.roomList.clear()
             self.userInfo.clear()
@@ -461,9 +478,10 @@ class VoiceChatClient(QMainWindow):
                         self.log_message(data['message'])
                         self.stop_audio_stream()  # Stop the current audio stream
                         self.start_audio_stream()  # Start a new audio stream for the new room
-                        self.play_sound('assets/sound/channel_switched.wav')
+                        self.play_sound('assets/sound/channel_switched.mp3')
                     self.update_statistics(data['type'], len(message))
         except websockets.ConnectionClosed:
+            self.play_sound('assets/sound/connection_lost.mp3')
             self.log_message("Connection closed")
 
     def get_uid_for_user(self, nickname):

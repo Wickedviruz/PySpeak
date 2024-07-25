@@ -1,7 +1,7 @@
 ===============================================================================
                         PySpeak - Client Changelog
                               Copyright None
-                          https://www.PySpeak.com
+                                *website*
 ===============================================================================
    + Added feature or noticeable improvement
    - Bug fix or something removed
