@@ -1,9 +1,10 @@
 import pyaudio
 import wave
-import json
 import numpy as np
-from settings import load_settings_from_db, save_settings_to_db
-from PyQt5.QtCore import Qt, QThread
+import sqlite3
+import uuid
+from settings import load_settings_from_db, save_settings_to_db, db_file
+from PyQt5.QtCore import Qt, QThread, QTimer
 from PyQt5.QtGui import QIcon, QPainter
 from PyQt5.QtWidgets import ( 
     QWidget, 
@@ -25,9 +26,10 @@ from PyQt5.QtWidgets import (
     QDialogButtonBox,
     QStyleOptionSlider,
     QStyle,
-    QLabel)
+    QLabel,
+    QTabWidget)
 
-
+#Connections tab
 class ConnectDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -61,6 +63,7 @@ class ConnectDialog(QDialog):
     def get_connection_info(self):
         return self.serverInput.text(), self.passwordInput.text(), self.nameInput.text()
 
+#Bookmarks tab
 class ManageBookmarksDialog(QDialog):
     def __init__(self, bookmarks, save_func, parent=None):
         super().__init__(parent)
@@ -70,40 +73,56 @@ class ManageBookmarksDialog(QDialog):
 
     def initUI(self):
         self.setWindowTitle('Manage Bookmarks')
-        self.setGeometry(100, 100, 600, 400)
+        self.setWindowIcon(QIcon('assets/img/icon.png'))
+        self.setGeometry(100, 100, 500, 500)
         
-        mainLayout = QHBoxLayout(self)
+        mainLayout = QVBoxLayout(self)
         
+        # Top layout with bookmarks list and form
+        topLayout = QHBoxLayout()
+
         # Left side: List of saved servers
         self.serverList = QListWidget()
         self.serverList.currentItemChanged.connect(self.load_selected_bookmark)
-        mainLayout.addWidget(self.serverList, 1)
+        topLayout.addWidget(self.serverList, 1)
         
         # Right side: Form to edit details
         formLayout = QFormLayout()
         self.nameInput = QLineEdit()
+        self.nicknameInput = QLineEdit()
         self.addressInput = QLineEdit()
         self.passwordInput = QLineEdit()
         self.passwordInput.setEchoMode(QLineEdit.Password)
-        self.nicknameInput = QLineEdit()
 
-        formLayout.addRow("Server Name:", self.nameInput)
-        formLayout.addRow("Server Address:", self.addressInput)
-        formLayout.addRow("Password (Optional):", self.passwordInput)
+
+        formLayout.addRow("Bookmark Name:", self.nameInput)
         formLayout.addRow("Nickname:", self.nicknameInput)
-
-        self.saveButton = QPushButton("Save")
-        self.saveButton.clicked.connect(self.save_current_bookmark)
-        self.deleteButton = QPushButton("Delete")
-        self.deleteButton.clicked.connect(self.delete_current_bookmark)
-        buttonsLayout = QHBoxLayout()
-        buttonsLayout.addWidget(self.saveButton)
-        buttonsLayout.addWidget(self.deleteButton)
-        formLayout.addRow(buttonsLayout)
+        formLayout.addRow("Server Address:", self.addressInput)
+        formLayout.addRow("Server Password:", self.passwordInput)
 
         formContainer = QWidget()
         formContainer.setLayout(formLayout)
-        mainLayout.addWidget(formContainer, 2)
+        topLayout.addWidget(formContainer, 2)
+
+        mainLayout.addLayout(topLayout)
+
+        # Bottom layout with buttons
+        bottomLayout = QHBoxLayout()
+        self.addButton = QPushButton("Add Bookmark")
+        self.addButton.clicked.connect(self.add_new_bookmark)
+        self.deleteButton = QPushButton("Remove Bookmark")
+        self.deleteButton.clicked.connect(self.delete_current_bookmark)
+        self.saveButton = QPushButton("Save")
+        self.saveButton.clicked.connect(self.save_current_bookmark)
+        self.applyButton = QPushButton("Apply")
+        self.applyButton.clicked.connect(self.save_current_bookmark)
+
+        bottomLayout.addWidget(self.addButton)
+        bottomLayout.addWidget(self.deleteButton)
+        bottomLayout.addWidget(self.saveButton)
+        bottomLayout.addWidget(self.applyButton)
+
+        mainLayout.addLayout(bottomLayout)
 
         self.setLayout(mainLayout)
         self.load_bookmarks()
@@ -118,9 +137,9 @@ class ManageBookmarksDialog(QDialog):
         if current is not None:
             data = self.bookmarks[self.serverList.row(current)]
             self.nameInput.setText(data['name'])
+            self.nicknameInput.setText(data.get('nickname', ''))
             self.addressInput.setText(data['address'])
-            self.passwordInput.setText(data['password'])
-            self.nicknameInput.setText(data['nickname'])
+            self.passwordInput.setText(data.get('password', ''))
 
     def save_current_bookmark(self):
         index = self.serverList.currentRow()
@@ -131,9 +150,9 @@ class ManageBookmarksDialog(QDialog):
 
         data = {
             'name': self.nameInput.text(),
+            'nickname': self.nicknameInput.text(),
             'address': self.addressInput.text(),
-            'password': self.passwordInput.text(),
-            'nickname': self.nicknameInput.text()
+            'password': self.passwordInput.text()
         }
         self.bookmarks[index] = data
         self.serverList.item(index).setText(data['name'])
@@ -145,6 +164,13 @@ class ManageBookmarksDialog(QDialog):
             del self.bookmarks[index]
             self.serverList.takeItem(index)
             self.save_func()
+
+    def add_new_bookmark(self):
+        self.serverList.setCurrentRow(-1)
+        self.nameInput.clear()
+        self.nicknameInput.clear()
+        self.addressInput.clear()
+        self.passwordInput.clear()
 
 class CustomSlider(QSlider):
     def __init__(self, *args, **kwargs):
@@ -187,6 +213,206 @@ class AudioTestThread(QThread):
         self.running = False
         self.wait()
 
+#self tab
+class ConnectionInfoDialog(QDialog):
+    def __init__(self, parent, get_connection_info_callback):
+        super().__init__(parent)
+        self.get_connection_info_callback = get_connection_info_callback
+        self.setWindowTitle("Connection Info")
+        self.setGeometry(200, 200, 400, 300)
+
+        self.layout = QVBoxLayout()
+
+        self.client_info_layout = QFormLayout()
+        self.client_name_label = QLabel()
+        self.client_info_layout.addRow("Client name:", self.client_name_label)
+        self.connection_time_label = QLabel()
+        self.client_info_layout.addRow("Connection time:", self.connection_time_label)
+        self.idle_time_label = QLabel()
+        self.client_info_layout.addRow("Idle time:", self.idle_time_label)
+        self.ping_label = QLabel()
+        self.client_info_layout.addRow("Ping:", self.ping_label)
+        self.client_address_label = QLabel()
+        self.client_info_layout.addRow("Client address:", self.client_address_label)
+        self.layout.addLayout(self.client_info_layout)
+        
+        self.tab_widget = QTabWidget()
+        self.total_tab = QWidget()
+        self.speech_tab = QWidget()
+        self.keep_alive_tab = QWidget()
+        self.control_tab = QWidget()
+        self.quota_tab = QWidget()
+
+        self.tab_widget.addTab(self.total_tab, "Total")
+        self.tab_widget.addTab(self.speech_tab, "Speech")
+        self.tab_widget.addTab(self.keep_alive_tab, "Keep Alive")
+        self.tab_widget.addTab(self.control_tab, "Control")
+        self.tab_widget.addTab(self.quota_tab, "Quota")
+
+        self.layout.addWidget(self.tab_widget)
+        self.setLayout(self.layout)
+
+        self.init_total_tab()
+        self.init_speech_tab()
+        self.init_keep_alive_tab()
+        self.init_control_tab()
+        self.init_quota_tab()
+
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self.update_info)
+        self.timer.start(1000)  # Update every second
+
+    def init_total_tab(self):
+        layout = QFormLayout()
+        self.total_packet_loss_label = QLabel("0.00 %")
+        self.total_packets_transferred_label = QLabel("0")
+        self.total_bytes_transferred_label = QLabel("0 KiB")
+        self.total_bandwidth_last_second_label = QLabel("0 Bytes/s")
+        self.total_bandwidth_last_minute_label = QLabel("0 Bytes/s")
+        self.total_file_transfer_bandwidth_label = QLabel("0 Bytes/s")
+
+        layout.addRow("Packet loss:", self.total_packet_loss_label)
+        layout.addRow("Packets transferred:", self.total_packets_transferred_label)
+        layout.addRow("Bytes transferred:", self.total_bytes_transferred_label)
+        layout.addRow("Bandwidth last second:", self.total_bandwidth_last_second_label)
+        layout.addRow("Bandwidth last minute:", self.total_bandwidth_last_minute_label)
+        layout.addRow("File transfer bandwidth:", self.total_file_transfer_bandwidth_label)
+        
+        self.total_tab.setLayout(layout)
+
+    def init_speech_tab(self):
+        layout = QFormLayout()
+        self.speech_packets_transferred_label = QLabel("0")
+        self.speech_bytes_transferred_label = QLabel("0 KiB")
+        self.speech_bandwidth_last_second_label = QLabel("0 Bytes/s")
+        self.speech_bandwidth_last_minute_label = QLabel("0 Bytes/s")
+
+        layout.addRow("Packets transferred:", self.speech_packets_transferred_label)
+        layout.addRow("Bytes transferred:", self.speech_bytes_transferred_label)
+        layout.addRow("Bandwidth last second:", self.speech_bandwidth_last_second_label)
+        layout.addRow("Bandwidth last minute:", self.speech_bandwidth_last_minute_label)
+
+        self.speech_tab.setLayout(layout)
+
+    def init_keep_alive_tab(self):
+        layout = QFormLayout()
+        self.keep_alive_packets_transferred_label = QLabel("0")
+        self.keep_alive_bytes_transferred_label = QLabel("0 KiB")
+        self.keep_alive_bandwidth_last_second_label = QLabel("0 Bytes/s")
+        self.keep_alive_bandwidth_last_minute_label = QLabel("0 Bytes/s")
+
+        layout.addRow("Packets transferred:", self.keep_alive_packets_transferred_label)
+        layout.addRow("Bytes transferred:", self.keep_alive_bytes_transferred_label)
+        layout.addRow("Bandwidth last second:", self.keep_alive_bandwidth_last_second_label)
+        layout.addRow("Bandwidth last minute:", self.keep_alive_bandwidth_last_minute_label)
+
+        self.keep_alive_tab.setLayout(layout)
+
+    def init_control_tab(self):
+        layout = QFormLayout()
+        self.control_packets_transferred_label = QLabel("0")
+        self.control_bytes_transferred_label = QLabel("0 KiB")
+        self.control_bandwidth_last_second_label = QLabel("0 Bytes/s")
+        self.control_bandwidth_last_minute_label = QLabel("0 Bytes/s")
+
+        layout.addRow("Packets transferred:", self.control_packets_transferred_label)
+        layout.addRow("Bytes transferred:", self.control_bytes_transferred_label)
+        layout.addRow("Bandwidth last second:", self.control_bandwidth_last_second_label)
+        layout.addRow("Bandwidth last minute:", self.control_bandwidth_last_minute_label)
+
+        self.control_tab.setLayout(layout)
+
+    def init_quota_tab(self):
+        layout = QFormLayout()
+        self.quota_bytes_transferred_label = QLabel("0 KiB")
+        self.quota_bandwidth_last_second_label = QLabel("0 Bytes/s")
+        self.quota_bandwidth_last_minute_label = QLabel("0 Bytes/s")
+
+        layout.addRow("Bytes transferred:", self.quota_bytes_transferred_label)
+        layout.addRow("Bandwidth last second:", self.quota_bandwidth_last_second_label)
+        layout.addRow("Bandwidth last minute:", self.quota_bandwidth_last_minute_label)
+
+        self.quota_tab.setLayout(layout)
+
+    def update_info(self):
+        info = self.get_connection_info_callback()
+
+        # Update client info
+        self.client_name_label.setText(info.get('client_name', ''))
+        self.connection_time_label.setText(info.get('connection_time', ''))
+        self.idle_time_label.setText(info.get('idle_time', ''))
+        self.ping_label.setText(info.get('ping', ''))
+        self.client_address_label.setText(info.get('client_address', ''))
+
+        # Update total tab
+        total_info = info.get('total', {})
+        self.total_packet_loss_label.setText(f"{total_info.get('packet_loss', '0.00')} %")
+        self.total_packets_transferred_label.setText(f"{total_info.get('packets_transferred', 0)}")
+        self.total_bytes_transferred_label.setText(f"{total_info.get('bytes_transferred', '0.00 KiB')}")
+        self.total_bandwidth_last_second_label.setText(f"{total_info.get('bandwidth_last_second', '0 Bytes/s')}")
+        self.total_bandwidth_last_minute_label.setText(f"{total_info.get('bandwidth_last_minute', '0 Bytes/s')}")
+        self.total_file_transfer_bandwidth_label.setText(f"{total_info.get('file_transfer_bandwidth', '0 Bytes/s')}")
+
+        # Update speech tab
+        speech_info = info.get('speech', {})
+        self.speech_packets_transferred_label.setText(f"{speech_info.get('packets_transferred', 0)}")
+        self.speech_bytes_transferred_label.setText(f"{speech_info.get('bytes_transferred', '0.00 KiB')}")
+        self.speech_bandwidth_last_second_label.setText(f"{speech_info.get('bandwidth_last_second', '0 Bytes/s')}")
+        self.speech_bandwidth_last_minute_label.setText(f"{speech_info.get('bandwidth_last_minute', '0 Bytes/s')}")
+
+        # Update keep alive tab
+        keep_alive_info = info.get('keep_alive', {})
+        self.keep_alive_packets_transferred_label.setText(f"{keep_alive_info.get('packets_transferred', 0)}")
+        self.keep_alive_bytes_transferred_label.setText(f"{keep_alive_info.get('bytes_transferred', '0.00 KiB')}")
+        self.keep_alive_bandwidth_last_second_label.setText(f"{keep_alive_info.get('bandwidth_last_second', '0 Bytes/s')}")
+        self.keep_alive_bandwidth_last_minute_label.setText(f"{keep_alive_info.get('bandwidth_last_minute', '0 Bytes/s')}")
+
+        # Update control tab
+        control_info = info.get('control', {})
+        self.control_packets_transferred_label.setText(f"{control_info.get('packets_transferred', 0)}")
+        self.control_bytes_transferred_label.setText(f"{control_info.get('bytes_transferred', '0.00 KiB')}")
+        self.control_bandwidth_last_second_label.setText(f"{control_info.get('bandwidth_last_second', '0 Bytes/s')}")
+        self.control_bandwidth_last_minute_label.setText(f"{control_info.get('bandwidth_last_minute', '0 Bytes/s')}")
+
+        # Update quota tab
+        quota_info = info.get('quota', {})
+        self.quota_bytes_transferred_label.setText(f"{quota_info.get('bytes_transferred', '0.00 KiB')}")
+        self.quota_bandwidth_last_second_label.setText(f"{quota_info.get('bandwidth_last_second', '0 Bytes/s')}")
+        self.quota_bandwidth_last_minute_label.setText(f"{quota_info.get('bandwidth_last_minute', '0 Bytes/s')}")
+
+#Permissions tab
+class UsePrivilegeKey(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.initUI()
+
+    def initUI(self):
+        self.setWindowTitle('Use privilege key')
+        self.setWindowIcon(QIcon('assets/img/default_colored_2014/token_use.svg'))
+        self.setGeometry(100, 100, 225, 100)
+
+        layout = QVBoxLayout()
+
+        # Descriptive label
+        description_label = QLabel('Enter privilege key:')
+        layout.addWidget(description_label)
+
+        # Input field for privilege key
+        self.usePrivilegeKeyInput = QLineEdit(self)
+        layout.addWidget(self.usePrivilegeKeyInput)
+
+        # OK and Cancel buttons
+        button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        button_box.accepted.connect(self.accept)
+        button_box.rejected.connect(self.reject)
+        layout.addWidget(button_box)
+
+        self.setLayout(layout)
+
+    def get_use_privilege_key(self):
+        return self.usePrivilegeKeyInput.text()
+    
+#Tools tab
 class SettingsDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -211,11 +437,11 @@ class SettingsDialog(QDialog):
         content_layout.addWidget(self.category_list, 1)
 
         playback_item = QListWidgetItem("Playback")
-        playback_item.setIcon(QIcon('assets/img/speaker.png'))
+        playback_item.setIcon(QIcon('assets/img/default_colored_2014/capture.svg'))
         self.category_list.addItem(playback_item)
 
         capture_item = QListWidgetItem("Capture")
-        capture_item.setIcon(QIcon('assets/img/microphone.png'))
+        capture_item.setIcon(QIcon('assets/img/default_colored_2014/volume.svg'))
         self.category_list.addItem(capture_item)
 
         # Right side: Stack of settings pages
@@ -571,6 +797,135 @@ class PasswordDialog(QDialog):
     def get_password(self):
         return self.passwordInput.text()
 
+class IdentitiesDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.initUI()
+
+    def initUI(self):
+        self.setWindowTitle('Identities')
+        self.setWindowIcon(QIcon('assets/img/icon.png'))
+        self.setGeometry(100, 100, 500, 500)
+        
+        mainLayout = QVBoxLayout(self)
+        
+        topLayout = QHBoxLayout()
+        self.identitiesList = QListWidget()
+        self.identitiesList.currentItemChanged.connect(self.load_selected_identity)
+        topLayout.addWidget(self.identitiesList, 1)
+        
+        formLayout = QFormLayout()
+        self.identityNameInput = QLineEdit(self)
+        self.nicknameInput = QLineEdit(self)
+        self.uidInput = QLineEdit(self)
+        self.uidInput.setReadOnly(True)
+
+        formLayout.addRow('Identity name:', self.identityNameInput)
+        formLayout.addRow('Nickname:', self.nicknameInput)
+        formLayout.addRow('Unique ID:', self.uidInput)
+
+        formContainer = QWidget()
+        formContainer.setLayout(formLayout)
+        topLayout.addWidget(formContainer, 2)
+
+        mainLayout.addLayout(topLayout)
+
+        bottomLayout = QHBoxLayout()
+        self.addButton = QPushButton("Create")
+        self.addButton.clicked.connect(self.add_new_identity)
+        self.deleteButton = QPushButton("Remove")
+        self.deleteButton.clicked.connect(self.delete_current_identity)
+        self.saveButton = QPushButton("Save")
+        self.saveButton.clicked.connect(self.save_current_identity)
+        self.cancelButton = QPushButton("Cancel")
+        self.cancelButton.clicked.connect(self.reject)
+
+        bottomLayout.addWidget(self.addButton)
+        bottomLayout.addWidget(self.deleteButton)
+        bottomLayout.addWidget(self.saveButton)
+        bottomLayout.addWidget(self.cancelButton)
+
+        mainLayout.addLayout(bottomLayout)
+        self.setLayout(mainLayout)
+        self.load_identities()
+
+    def load_identities(self):
+        self.identitiesList.clear()
+        conn = sqlite3.connect(db_file)
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, identity_name FROM identities")
+        identities = cursor.fetchall()
+        conn.close()
+        for identity in identities:
+            item = QListWidgetItem(identity[1])
+            item.setData(Qt.UserRole, identity[0])
+            self.identitiesList.addItem(item)
+
+    def load_selected_identity(self, current, previous):
+        if current is not None:
+            identity_id = current.data(Qt.UserRole)
+            conn = sqlite3.connect(db_file)
+            cursor = conn.cursor()
+            cursor.execute("SELECT identity_name, nickname, uid FROM identities WHERE id=?", (identity_id,))
+            data = cursor.fetchone()
+            conn.close()
+            if data:
+                self.identityNameInput.setText(data[0])
+                self.nicknameInput.setText(data[1])
+                self.uidInput.setText(data[2])
+
+    def save_current_identity(self):
+        current_item = self.identitiesList.currentItem()
+        if current_item is not None:
+            identity_id = current_item.data(Qt.UserRole)
+            data = {
+                'identity_name': self.identityNameInput.text(),
+                'nickname': self.nicknameInput.text(),
+                'uid': self.uidInput.text()
+            }
+            conn = sqlite3.connect(db_file)
+            cursor = conn.cursor()
+            cursor.execute('''
+                UPDATE identities
+                SET identity_name = ?, nickname = ?, uid = ?
+                WHERE id = ?
+            ''', (data['identity_name'], data['nickname'], data['uid'], identity_id))
+            conn.commit()
+            conn.close()
+            current_item.setText(data['identity_name'])
+        else:
+            self.add_new_identity()
+
+    def delete_current_identity(self):
+        current_item = self.identitiesList.currentItem()
+        if current_item is not None:
+            identity_id = current_item.data(Qt.UserRole)
+            conn = sqlite3.connect(db_file)
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM identities WHERE id=?", (identity_id,))
+            conn.commit()
+            conn.close()
+            self.identitiesList.takeItem(self.identitiesList.row(current_item))
+
+    def add_new_identity(self):
+        identity_name = self.identityNameInput.text()
+        nickname = self.nicknameInput.text()
+        uid = str(uuid.uuid4())
+
+        conn = sqlite3.connect(db_file)
+        cursor = conn.cursor()
+        cursor.execute('''
+            INSERT INTO identities (identity_name, nickname, uid)
+            VALUES (?, ?, ?)
+        ''', (identity_name, nickname, uid))
+        conn.commit()
+        conn.close()
+
+        item = QListWidgetItem(identity_name)
+        item.setData(Qt.UserRole, cursor.lastrowid)
+        self.identitiesList.addItem(item)
+
+#Help tab
 class ChangelogDialog(QDialog):
     def __init__(self, changelog_file, parent=None):
         super().__init__(parent)
@@ -606,33 +961,69 @@ class ChangelogDialog(QDialog):
         self.setLayout(layout)
 
 class AboutPySpeak(QDialog):
-    def __init__(self, parent=None):
+    def __init__(self, pySpeak_infoFile, parent=None):
         super().__init__(parent)
+        self.pySpeak_infoFile = pySpeak_infoFile
         self.initUI()
 
     def initUI(self):
         self.setWindowTitle('About PySpeak')
-        self.setGeometry(100, 100, 300, 100)
+        self.setGeometry(100, 100, 700, 500)
 
-        layout = QFormLayout()
+        layout = QVBoxLayout()
 
-        about_text = QLabel("PySpeak\nVersion: 1.0.0\nDeveloped by: Johan Ivarsson")
-        layout.addRow(about_text)
+        # QTextEdit för att visa PySpeak-innehållet
+        self.textEdit = QTextEdit(self)
+        self.textEdit.setReadOnly(True)
+        self.textEdit.setLineWrapMode(QTextEdit.NoWrap)  
+        self.textEdit.setFontFamily("Courier") 
+        layout.addWidget(self.textEdit)
 
+        # Läsa och visa PyQt. txt-innehållet
+        with open(self.pySpeak_infoFile, 'r') as file:
+            self.textEdit.setPlainText(file.read())
+
+        # Stäng-knapp
+        button_layout = QHBoxLayout()
+        button_layout.addStretch()
+        self.closeButton = QPushButton('Close', self)
+        self.closeButton.setFixedSize(60, 25)
+        self.closeButton.clicked.connect(self.accept)
+        button_layout.addWidget(self.closeButton)
+
+        layout.addLayout(button_layout)
         self.setLayout(layout)
 
 class AboutPyQT(QDialog):
-    def __init__(self, parent=None):
+    def __init__(self, pyqt5_infoFile, parent=None):
         super().__init__(parent)
+        self.pyqt5_infoFile = pyqt5_infoFile
         self.initUI()
 
     def initUI(self):
         self.setWindowTitle('About PyQt')
-        self.setGeometry(100, 100, 300, 100)
+        self.setGeometry(100, 100, 700, 500)
 
-        layout = QFormLayout()
+        layout = QVBoxLayout()
 
-        about_text = QLabel("PYQT")
-        layout.addRow(about_text)
+        # QTextEdit för att visa PyQt-innehållet
+        self.textEdit = QTextEdit(self)
+        self.textEdit.setReadOnly(True)
+        self.textEdit.setLineWrapMode(QTextEdit.NoWrap)  # Disable word wrap
+        self.textEdit.setFontFamily("Courier")  # Use a fixed-width font
+        layout.addWidget(self.textEdit)
 
+        # Läsa och visa PyQt.txt-innehållet
+        with open(self.pyqt5_infoFile, 'r') as file:
+            self.textEdit.setPlainText(file.read())
+
+        # Stäng-knapp
+        button_layout = QHBoxLayout()
+        button_layout.addStretch()
+        self.closeButton = QPushButton('Close', self)
+        self.closeButton.setFixedSize(60, 25)
+        self.closeButton.clicked.connect(self.accept)
+        button_layout.addWidget(self.closeButton)
+
+        layout.addLayout(button_layout)
         self.setLayout(layout)

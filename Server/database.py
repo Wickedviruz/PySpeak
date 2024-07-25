@@ -9,7 +9,7 @@ def init_db(db_file):
     CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         username TEXT UNIQUE NOT NULL,
-        uuid TEXT UNIQUE NOT NULL,
+        uid TEXT UNIQUE NOT NULL,
         role TEXT DEFAULT 'user'
     )
     ''')

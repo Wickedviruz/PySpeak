@@ -45,7 +45,7 @@
 2. **Connecting to a Server**:
     - Open the client.
     - Click on `Connections` -> `Connect`.
-    - Enter the server address, password, and your nickname.
+    - Enter the server address, password if the server is setup with one, and your nickname.
     - Click `Connect`.
 
 3. **Managing Bookmarks**:

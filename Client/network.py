@@ -1,48 +1,60 @@
 import asyncio
 import json
 import websockets
+import datetime
 
-async def connect_to_server(client, server_address, password, name):
+async def connect_to_server(self, server_address, password, name):
     try:
-        client.log_message(f"Trying to connect to server on {server_address}")
-        client.websocket = await websockets.connect(f'ws://{server_address}')
-        
-        await client.websocket.send(json.dumps({'type': 'join', 'username': name, 'password': password}))
-        client.log_message(f"Connected to {server_address} as {name}")
-        client.current_username = name
-        client.play_sound('assets/sound/connected.wav')
+        self.log_message(f"trying to connect to server on {server_address}")
+        self.websocket = await websockets.connect(f'ws://{server_address}')
+        await self.websocket.send(json.dumps({'type': 'join', 'username': name, 'password': password}))
+        self.log_message(f"Connected to {server_address} as {name}")
+        self.current_username = name
+        self.connection_start_time = datetime.now()
+        self.ping = 0
+        self.connectionInfoAction.setEnabled(True)
+        self.update_bookmark_actions()
+        self.play_sound('assets/sound/connected.wav')
 
-        asyncio.ensure_future(receive_messages(client))
+        asyncio.ensure_future(self.receive_messages())
     except Exception as e:
-        client.log_message(f"Failed to connect: {str(e)}")
+        self.log_message(f"Failed to connect: {str(e)}")
 
-async def disconnect_from_server(client):
-    if client.websocket:
-        await client.websocket.close()
-        client.websocket = None
-        client.log_message("Disconnected from server")
-        client.play_sound('assets/sound/disconnected.wav')
-        client.roomList.clear()
-        client.userInfo.clear()
+async def disconnect_from_server(self):
+    if self.websocket:
+        await self.websocket.close()
+        self.websocket = None
+        self.connectionInfoAction.setEnabled(False)
+        self.log_message("Disconnected from server")
+        self.play_sound('assets/sound/disconnected.wav')
+        self.update_bookmark_actions()
+        self.roomList.clear()
+        self.userInfo.clear()
 
-async def receive_messages(client):
+async def receive_messages(self):
     try:
-        async for message in client.websocket:
+        async for message in self.websocket:
             if isinstance(message, bytes):
-                client.play_audio(message)
+                self.play_audio(message)
+                self.update_statistics("speech", len(message))
             else:
                 data = json.loads(message)
                 if data['type'] == 'info':
-                    client.log_message(data['message'])
+                    self.log_message(data['message'])
                 elif data['type'] == 'message':
-                    client.log_message(f"{data['username']}: {data['message']}")
+                    self.log_message(f"{data['username']}: {data['message']}")
                 elif data['type'] == 'room_update':
-                    client.update_room_members(data['members'])
+                    self.update_room_members(data['members'])
                 elif data['type'] == 'room_list':
-                    client.update_room_list(data)
+                    self.update_room_list(data)
                 elif data['type'] == 'error':
-                    client.log_message(f"Error: {data['message']}")
+                    self.log_message(f"Error: {data['message']}")
                 elif data['type'] == 'talking':
-                    client.update_talking_status(data['username'], data['status'])
+                    self.update_talking_status(data['username'], data['status'])
+                elif data['type'] == 'ping':
+                    self.ping = data['ping']
+                # Update statistics for different message types
+                self.update_statistics(data['type'], len(message))
     except websockets.ConnectionClosed:
-        client.log_message("Connection closed")
+        self.log_message("Connection closed")
+

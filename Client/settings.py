@@ -1,6 +1,7 @@
 import sqlite3
 import json
 import time
+import uuid
 
 db_file = 'DB/settings.db'
 
@@ -17,6 +18,28 @@ def create_database(db_file):
     ''')
 
     cursor.execute('''
+    CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        uid TEXT UNIQUE NOT NULL,
+        username TEXT NOT NULL,
+        password TEXT NOT NULL,
+        role TEXT DEFAULT 'user',
+        default_identity BOOLEAN DEFAULT 0
+    )
+    ''')
+
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS identities (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
+        identity_name TEXT NOT NULL,
+        uid TEXT UNIQUE NOT NULL,
+        nickname TEXT NOT NULL,
+        FOREIGN KEY(user_id) REFERENCES users(id)
+    )
+    ''')
+
+    cursor.execute('''
     CREATE TABLE IF NOT EXISTS bookmarks (
         timestamp INTEGER NOT NULL,
         name VARCHAR NOT NULL,
@@ -27,6 +50,21 @@ def create_database(db_file):
     ''')
 
     conn.commit()
+    conn.close()
+
+
+    # Ensure there's a default identity
+    create_default_identity()
+
+def create_default_identity():
+    conn = sqlite3.connect(db_file)
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM identities WHERE id=1")
+    if cursor.fetchone() is None:
+        cursor.execute('''
+            INSERT INTO identities (identity_name, nickname, uid) VALUES (?, ?, ?)
+        ''', ('Default', 'User', str(uuid.uuid4())))
+        conn.commit()
     conn.close()
 
 def save_settings_to_db(settings):
@@ -83,6 +121,14 @@ def save_bookmarks(bookmarks, db_file=db_file):
     
     conn.commit()
     conn.close()
+
+def load_default_identity(db_file=db_file):
+    conn = sqlite3.connect(db_file)
+    cursor = conn.cursor()
+    cursor.execute("SELECT identity_name, nickname, uid FROM identities WHERE id=1")
+    row = cursor.fetchone()
+    conn.close()
+    return {'identity_name': row[0], 'nickname': row[1], 'uid': row[2]} if row else None
 
 # Skapa databasen om den inte redan finns
 create_database(db_file)

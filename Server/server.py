@@ -5,7 +5,6 @@ import sqlite3
 import uuid
 import logging
 import ssl
-from datetime import datetime
 
 # Local imports
 import database
@@ -112,6 +111,7 @@ async def process_message(client_id, data):
 
 async def handle_join(client_id, data, first_time=False):
     username = data['username']
+    uid = data['uid']
     room_name = data.get('room', 'Lobby')
 
     # Kontrollera serverlösenord om det finns
@@ -121,17 +121,21 @@ async def handle_join(client_id, data, first_time=False):
 
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM users WHERE username=?", (username,))
+
+    # Sök efter användaren via UID
+    cursor.execute("SELECT * FROM users WHERE uid=?", (uid,))
     user = cursor.fetchone()
-    
+
     if not user:
         # Skapa ny användare om det inte finns
-        cursor.execute("INSERT INTO users (username, uuid) VALUES (?, ?)", (username, client_id))
+        cursor.execute("INSERT INTO users (uid, username, password, role, default_identity) VALUES (?, ?, ?, ?, ?)",
+                       (uid, username, 'default_password', 'user', True))
         conn.commit()
-        cursor.execute("SELECT * FROM users WHERE username=?", (username,))
+        cursor.execute("SELECT * FROM users WHERE uid=?", (uid,))
         user = cursor.fetchone()
 
     clients[client_id]['username'] = username
+    clients[client_id]['uid'] = uid
 
     cursor.execute("SELECT * FROM rooms WHERE name=?", (room_name,))
     room = cursor.fetchone()
@@ -214,13 +218,13 @@ async def handle_private_message(client_id, data):
 
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT uuid FROM users WHERE username=?", (recipient,))
-    recipient_uuid = cursor.fetchone()
+    cursor.execute("SELECT uid FROM users WHERE username=?", (recipient,))
+    recipient_uid = cursor.fetchone()
 
-    if recipient_uuid:
-        recipient_uuid = recipient_uuid[0]
-        if recipient_uuid in clients and clients[recipient_uuid]['websocket'].open:
-            await clients[recipient_uuid]['websocket'].send(json.dumps({'type': 'private_message', 'username': username, 'message': message}))
+    if recipient_uid:
+        recipient_uid = recipient_uid[0]
+        if recipient_uid in clients and clients[recipient_uid]['websocket'].open:
+            await clients[recipient_uid]['websocket'].send(json.dumps({'type': 'private_message', 'username': username, 'message': message}))
     conn.close()
 
 async def handle_switch_room(client_id, data):
@@ -234,6 +238,8 @@ async def handle_switch_room(client_id, data):
 
     conn = get_db_connection()
     cursor = conn.cursor()
+
+    # Kontrollera om det nya rummet finns
     cursor.execute("SELECT * FROM rooms WHERE name=?", (new_room_name,))
     room = cursor.fetchone()
 
@@ -242,13 +248,35 @@ async def handle_switch_room(client_id, data):
         conn.close()
         return
 
+    # Kontrollera lösenord om det finns
     if room[2] and room[2] != room_password:
         await clients[client_id]['websocket'].send(json.dumps({'type': 'password_required', 'room': new_room_name}))
         conn.close()
         return
 
-    await handle_join(client_id, {'username': clients[client_id]['username'], 'room': new_room_name})
+    # Ta bort användaren från det nuvarande rummet
+    if current_room_name:
+        cursor.execute("SELECT members FROM rooms WHERE name=?", (current_room_name,))
+        current_room_members = json.loads(cursor.fetchone()[0])
+        current_room_members.remove(client_id)
+        cursor.execute("UPDATE rooms SET members=? WHERE name=?", (json.dumps(current_room_members), current_room_name))
+        await update_room_members(current_room_name)
+
+    # Lägg till användaren i det nya rummet
+    cursor.execute("SELECT members FROM rooms WHERE name=?", (new_room_name,))
+    new_room_members = json.loads(cursor.fetchone()[0])
+    new_room_members.append(client_id)
+    cursor.execute("UPDATE rooms SET members=? WHERE name=?", (json.dumps(new_room_members), new_room_name))
+    conn.commit()
+
+    clients[client_id]['room'] = new_room_name
+    await update_room_members(new_room_name)
+
     conn.close()
+
+    # Skicka uppdatering om rumsbytet till klienten
+    await clients[client_id]['websocket'].send(json.dumps({'type': 'switched_room', 'message': f'Switched to room: {new_room_name}'}))
+    await update_room_list()
 
 async def handle_create_room(client_id, data):
     room_name = data['room_name']
@@ -286,9 +314,9 @@ async def handle_ban(client_id, data):
         conn.commit()
         await clients[client_id]['websocket'].send(json.dumps({'type': 'info', 'message': f"{username_to_ban} has been banned."}))
 
-        for uuid, client in clients.items():
+        for uid, client in clients.items():
             if client['username'] == username_to_ban:
-                await remove_client_from_room(uuid)
+                await remove_client_from_room(uid)
                 await client['websocket'].close()
     else:
         await clients[client_id]['websocket'].send(json.dumps({'type': 'error', 'message': f"User {username_to_ban} not found."}))
@@ -304,16 +332,16 @@ async def handle_kick(client_id, data):
 
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT uuid FROM users WHERE username=?", (username_to_kick,))
-    user_uuid_to_kick = cursor.fetchone()
+    cursor.execute("SELECT uid FROM users WHERE username=?", (username_to_kick,))
+    user_uid_to_kick = cursor.fetchone()
 
-    if user_uuid_to_kick:
-        user_uuid_to_kick = user_uuid_to_kick[0]
+    if user_uid_to_kick:
+        user_uid_to_kick = user_uid_to_kick[0]
         await clients[client_id]['websocket'].send(json.dumps({'type': 'info', 'message': f"{username_to_kick} has been kicked."}))
 
-        if user_uuid_to_kick in clients:
-            await remove_client_from_room(user_uuid_to_kick)
-            await clients[user_uuid_to_kick]['websocket'].close()
+        if user_uid_to_kick in clients:
+            await remove_client_from_room(user_uid_to_kick)
+            await clients[user_uid_to_kick]['websocket'].close()
     else:
         await clients[client_id]['websocket'].send(json.dumps({'type': 'error', 'message': f"User {username_to_kick} not found."}))
     conn.close()

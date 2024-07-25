@@ -1,28 +1,39 @@
-2024-07-22 21:00:28,276 - INFO - Server started
-2024-07-22 21:00:28,330 - INFO - server listening on 127.0.0.1:8765
-2024-07-22 21:00:28,330 - INFO - server listening on [::1]:8765
-2024-07-22 21:00:38,677 - INFO - connection open
-2024-07-22 21:00:53,782 - INFO - connection closed
-2024-07-22 21:02:39,578 - INFO - Server started
-2024-07-22 21:02:39,618 - INFO - server listening on 127.0.0.1:8765
-2024-07-22 21:02:39,619 - INFO - server listening on [::1]:8765
-2024-07-23 08:58:36,537 - INFO - Server started
-2024-07-23 08:58:36,759 - INFO - server listening on 127.0.0.1:8765
-2024-07-23 08:58:36,759 - INFO - server listening on [::1]:8765
-2024-07-23 08:59:26,829 - INFO - Server started
-2024-07-23 08:59:26,866 - INFO - server listening on 127.0.0.1:8765
-2024-07-23 08:59:26,866 - INFO - server listening on [::1]:8765
-2024-07-23 08:59:38,381 - INFO - connection open
-2024-07-23 08:59:42,809 - INFO - connection closed
-2024-07-23 09:05:34,227 - INFO - connection open
-2024-07-23 09:05:41,045 - INFO - connection open
-2024-07-23 09:05:51,524 - INFO - connection closed
-2024-07-23 09:05:56,474 - INFO - connection closed
-2024-07-23 09:36:50,054 - INFO - connection open
-2024-07-23 09:36:54,860 - INFO - connection closed
-2024-07-23 09:37:30,661 - INFO - connection open
-2024-07-23 09:37:47,411 - INFO - connection closed
-2024-07-23 11:29:37,991 - INFO - connection open
-2024-07-23 11:29:46,379 - INFO - connection closed
-2024-07-23 11:36:10,373 - INFO - connection open
-2024-07-23 11:36:12,732 - INFO - connection closed
+2024-07-24 15:30:33,829 - INFO - Server started
+2024-07-24 15:30:33,868 - INFO - server listening on [::1]:8765
+2024-07-24 15:30:33,868 - INFO - server listening on 127.0.0.1:8765
+2024-07-24 15:30:40,267 - INFO - connection open
+2024-07-24 15:30:40,268 - ERROR - connection handler failed
+Traceback (most recent call last):
+  File "C:\Users\johan\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\websockets\legacy\server.py", line 236, in handler
+    await self.ws_handler(self)
+  File "C:\Users\johan\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\websockets\legacy\server.py", line 1175, in _ws_handler
+    return await cast(
+           ^^^^^^^^^^^
+  File "C:\Users\johan\OneDrive\Dokument\PySpeak\Server\server.py", line 69, in handler
+    await process_message(client_id, data)
+  File "C:\Users\johan\OneDrive\Dokument\PySpeak\Server\server.py", line 94, in process_message
+    await handle_join(client_id, data, first_time=True)
+  File "C:\Users\johan\OneDrive\Dokument\PySpeak\Server\server.py", line 114, in handle_join
+    uid = data['uid']
+          ~~~~^^^^^^^
+KeyError: 'uid'
+2024-07-24 15:30:40,269 - INFO - connection closed
+2024-07-25 11:58:30,007 - INFO - Server started
+2024-07-25 11:58:30,212 - INFO - server listening on [::1]:8765
+2024-07-25 11:58:30,212 - INFO - server listening on 127.0.0.1:8765
+2024-07-25 11:59:04,981 - INFO - connection open
+2024-07-25 11:59:04,983 - ERROR - connection handler failed
+Traceback (most recent call last):
+  File "C:\Users\johan\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\websockets\legacy\server.py", line 236, in handler
+    await self.ws_handler(self)
+  File "C:\Users\johan\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\websockets\legacy\server.py", line 1175, in _ws_handler
+    return await cast(
+           ^^^^^^^^^^^
+  File "C:\Users\johan\OneDrive\Dokument\PySpeak\Server\server.py", line 69, in handler
+    await process_message(client_id, data)
+  File "C:\Users\johan\OneDrive\Dokument\PySpeak\Server\server.py", line 94, in process_message
+    await handle_join(client_id, data, first_time=True)
+  File "C:\Users\johan\OneDrive\Dokument\PySpeak\Server\server.py", line 131, in handle_join
+    cursor.execute("INSERT INTO users (uid, username, password, role, default_identity) VALUES (?, ?, ?, ?, ?)",
+sqlite3.OperationalError: table users has no column named password
+2024-07-25 11:59:04,994 - INFO - connection closed

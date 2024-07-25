@@ -4,15 +4,20 @@ import threading
 import pyaudio
 import websockets
 import webbrowser
+import sqlite3
+import uuid
+from datetime import datetime, timedelta
+from audio import AudioThread
+
+#PyQt imports
 from PyQt5.QtMultimedia import QMediaPlayer,QMediaContent
 from PyQt5.QtWidgets import QMainWindow, QVBoxLayout, QHBoxLayout, QWidget, QListWidget, QListWidgetItem, QPushButton, QTextEdit, QLineEdit, QAction, QSplitter, QDialog
 from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import Qt, QUrl
-from datetime import datetime
-from dialogs import ConnectDialog, ManageBookmarksDialog, SettingsDialog, PasswordDialog, ChangelogDialog, AboutPySpeak, AboutPyQT
-from audio import AudioThread
-from network import connect_to_server, disconnect_from_server, receive_messages
-from settings import load_settings_from_db, save_settings_to_db, load_bookmarks, save_bookmarks
+
+#Local imports
+from dialogs import ConnectDialog, ManageBookmarksDialog, ConnectionInfoDialog, SettingsDialog, PasswordDialog, ChangelogDialog, AboutPySpeak, AboutPyQT, IdentitiesDialog, UsePrivilegeKey
+from settings import load_bookmarks, save_bookmarks, load_default_identity, db_file
 
 class VoiceChatClient(QMainWindow):
     def __init__(self):
@@ -21,9 +26,15 @@ class VoiceChatClient(QMainWindow):
         self.websocket = None
         self.server_name = None
         self.current_username = None
+        self.connection_info_dialog = None
+        self.connection_start_time = None 
+        self.ping = 0
         self.load_bookmarks_from_db()
         self.refresh_bookmarks_menu()
+        self.current_identity = load_default_identity()
         self.changelog_file = 'changelog.txt'
+        self.pyqt5_infoFile = 'assets/pyqt5_info.ini'
+        self.pySpeak_infoFile = 'assets/pySpeak_info.ini'
 
         self.pyaudio_instance = pyaudio.PyAudio()
         self.stream = None
@@ -34,6 +45,15 @@ class VoiceChatClient(QMainWindow):
         self.lock = threading.Lock()
 
         self.media_player = QMediaPlayer()
+
+        # Initialize statistics
+        self.statistics = {
+            "total": {"packets_transferred": 0, "bytes_transferred": 0, "bandwidth_last_second": 0, "bandwidth_last_minute": 0, "file_transfer_bandwidth": 0},
+            "speech": {"packets_transferred": 0, "bytes_transferred": 0, "bandwidth_last_second": 0, "bandwidth_last_minute": 0},
+            "keep_alive": {"packets_transferred": 0, "bytes_transferred": 0, "bandwidth_last_second": 0, "bandwidth_last_minute": 0},
+            "control": {"packets_transferred": 0, "bytes_transferred": 0, "bandwidth_last_second": 0, "bandwidth_last_minute": 0},
+            "quota": {"bytes_transferred": 0, "bandwidth_last_second": 0, "bandwidth_last_minute": 0},
+        }
 
     def initUI(self):
         self.setWindowTitle('PySpeak Client')
@@ -68,13 +88,51 @@ class VoiceChatClient(QMainWindow):
         quitAction.triggered.connect(self.close)
         connectionsMenu.addAction(quitAction)
 
-        changeNameAction = QAction('Change Name', self)
-        selfMenu.addAction(changeNameAction)
+        captureProfileAction = QAction(QIcon('assets/img/default_colored_2014/close_button.svg'),'Capture profile', self)
+        selfMenu.addAction(captureProfileAction)
 
-        viewPermissionsAction = QAction('View Permissions', self)
-        permissionsMenu.addAction(viewPermissionsAction)
+        playbackProfileAction = QAction(QIcon('assets/img/default_colored_2014/close_button.svg'),'Playback profile', self)
+        selfMenu.addAction(playbackProfileAction)
 
-        settingsAction = QAction(QIcon('assets/img/default_colored_2014/settings.svg'), 'Settings', self)
+        soundPackAction = QAction(QIcon('assets/img/default_colored_2014/sound-pack.svg'),'Sound pack', self)
+        selfMenu.addAction(soundPackAction)
+        selfMenu.addSeparator()
+
+        muteMicrophoneAction = QAction(QIcon('assets/img/default_colored_2014/close_button.svg'),'Mute microphone', self)
+        selfMenu.addAction(muteMicrophoneAction)
+
+        muteSpeakerAction = QAction(QIcon('assets/img/default_colored_2014/close_button.svg'),'Mute speakers/headphones', self)
+        selfMenu.addAction(muteSpeakerAction)
+        selfMenu.addSeparator()
+
+        connectionInfoAction = QAction(QIcon('assets/img/default_colored_2014/server_log.svg'),'Connection info', self)
+        connectionInfoAction.triggered.connect(self.show_connection_info_dialog)
+        selfMenu.addAction(connectionInfoAction)
+
+        # Disable the connection info action initially
+        connectionInfoAction.setEnabled(False)
+        self.connectionInfoAction = connectionInfoAction
+
+        serverGroupsAction = QAction(QIcon('assets/img/default_colored_2014/server_log.svg'),'Server groups', self)
+        permissionsMenu.addAction(serverGroupsAction)
+
+        channelGroupsAction = QAction(QIcon('assets/img/default_colored_2014/server_log.svg'),'Channel groups', self)
+        permissionsMenu.addAction(channelGroupsAction)
+        permissionsMenu.addSeparator()
+
+        privilegeKeyAction = QAction(QIcon('assets/img/default_colored_2014/token.svg'),'Privilege Key', self)
+        permissionsMenu.addAction(privilegeKeyAction)
+
+        usePrivilegeKeyAction = QAction(QIcon('assets/img/default_colored_2014/token_use.svg'),'Use Privilege Key', self)
+        usePrivilegeKeyAction.triggered.connect(self.show_UsePrivilegeKey_dialog)
+        permissionsMenu.addAction(usePrivilegeKeyAction)
+        
+        identitiesAction = QAction(QIcon('assets/img/default_colored_2014/settings.svg'), 'Identities', self)
+        identitiesAction.triggered.connect(self.show_identities_dialog)
+        toolsMenu.addAction(identitiesAction)
+        toolsMenu.addSeparator()
+
+        settingsAction = QAction(QIcon('assets/img/default_colored_2014/settings.svg'), 'Options', self)
         settingsAction.triggered.connect(self.show_settings_dialog)
         toolsMenu.addAction(settingsAction)
 
@@ -152,7 +210,6 @@ class VoiceChatClient(QMainWindow):
         splitter_bottom.setStretchFactor(0, 3)
         splitter_bottom.setStretchFactor(1, 1)
 
-    # Resten av funktionerna som show_connect_dialog, toggle_mic, toggle_speaker, play_audio, start_audio_stream, stop_audio_stream, receive_messages, update_room_members, update_room_list, switch_room, send_message, log_message etc.
     #Mute/unmute section on client
     def toggle_mic(self):
         if self.muteMicButton.isChecked():
@@ -227,28 +284,6 @@ class VoiceChatClient(QMainWindow):
             self.audio_thread.stop()
             self.audio_thread = None
 
-    async def receive_messages(self):
-        try:
-            async for message in self.websocket:
-                if isinstance(message, bytes):
-                    self.play_audio(message)
-                else:
-                    data = json.loads(message)
-                    if data['type'] == 'info':
-                        self.log_message(data['message'])
-                    elif data['type'] == 'message':
-                        self.log_message(f"{data['username']}: {data['message']}")
-                    elif data['type'] == 'room_update':
-                        self.update_room_members(data['members'])
-                    elif data['type'] == 'room_list':
-                        self.update_room_list(data)
-                    elif data['type'] == 'error':
-                        self.log_message(f"Error: {data['message']}")
-                    elif data['type'] == 'talking':
-                        self.update_talking_status(data['username'], data['status'])
-        except websockets.ConnectionClosed:
-            self.log_message("Connection closed")
-
     def play_sound(self, sound_file):
         self.media_player.setMedia(QMediaContent(QUrl.fromLocalFile(sound_file)))
         self.media_player.play()
@@ -258,8 +293,9 @@ class VoiceChatClient(QMainWindow):
         dialog = ConnectDialog()
         if dialog.exec_() == QDialog.Accepted:
             server_address, password, name = dialog.get_connection_info()
-            self.current_username = name
-            asyncio.ensure_future(self.connect_to_server(server_address, password, name))
+            uid = self.get_uid_for_user(name)  # Hämta UID för användaren
+            asyncio.ensure_future(self.connect_to_server(server_address, password, name, uid))
+
 
     #Bookmarks management
     def show_manage_bookmarks_dialog(self):
@@ -284,29 +320,71 @@ class VoiceChatClient(QMainWindow):
         self.bookmarksMenu.clear()  # Clear existing menu items
 
         # Add fixed menu items
-        addBookmarkAction = QAction(QIcon('assets/img/default_colored_2014/bookmark_add.svg'),'Add Bookmark', self)
-        addBookmarkAction.triggered.connect(lambda: self.show_manage_bookmarks_dialog())
+        addBookmarkAction = QAction(QIcon('assets/img/default_colored_2014/bookmark_add.svg'), 'Add Bookmark', self)
+        addBookmarkAction.triggered.connect(self.add_bookmark)
         self.bookmarksMenu.addAction(addBookmarkAction)
 
-        manageBookmarksAction = QAction(QIcon('assets/img/default_colored_2014/bookmark_manager.svg'),'Manage Bookmarks', self)
+        manageBookmarksAction = QAction(QIcon('assets/img/default_colored_2014/bookmark_manager.svg'), 'Manage Bookmarks', self)
         manageBookmarksAction.triggered.connect(self.show_manage_bookmarks_dialog)
         self.bookmarksMenu.addAction(manageBookmarksAction)
         self.bookmarksMenu.addSeparator()
 
         # Dynamically add bookmarks
         for bookmark in self.bookmarks:
-            action = QAction(QIcon('assets/img/default_colored_2014/server_green.svg'),bookmark['name'], self)
+            action = QAction(QIcon('assets/img/default_colored_2014/server_green.svg'), bookmark['name'], self)
             action.triggered.connect(lambda checked, b=bookmark: self.connect_to_bookmark(b))
             self.bookmarksMenu.addAction(action)
 
+        self.update_bookmark_actions()
+
+    def update_bookmark_actions(self):
+        actions = self.bookmarksMenu.actions()
+        if self.websocket:
+            actions[0].setEnabled(True)
+        else:
+            actions[0].setEnabled(False) 
+
     def connect_to_bookmark(self, bookmark):
         print(f"Connecting to {bookmark['name']} at {bookmark['address']}")
-        asyncio.ensure_future(self.connect_to_server(bookmark['address'], bookmark['password'], bookmark['nickname']))
+        uid = self.get_uid_for_user(bookmark['nickname'])  # Hämta UID för användaren i bokmärket
+        asyncio.ensure_future(self.connect_to_server(bookmark['address'], bookmark['password'], bookmark['nickname'], uid))
+
+
+    def add_bookmark(self):
+        if self.websocket:
+            current_server = {
+                "name": self.server_name,
+                "address": self.websocket.remote_address[0],
+                "password": "",  # Lägg till logik för att hantera lösenord om nödvändigt
+                "nickname": self.current_username
+            }
+            self.bookmarks.append(current_server)
+            self.save_bookmarks_to_db()
+            self.refresh_bookmarks_menu()
+
+    #To show connection window
+    def show_connection_info_dialog(self):
+        if self.connection_info_dialog is None:
+            self.connection_info_dialog = ConnectionInfoDialog(self, self.get_connection_info)
+        self.connection_info_dialog.show()
+        self.connection_info_dialog.raise_()
+        self.connection_info_dialog.activateWindow()
+
+    #To show Identities window
+    def show_identities_dialog(self):
+        dialog = IdentitiesDialog(self)
+        dialog.exec_()
 
     #To show settings window
     def show_settings_dialog(self):
         dialog = SettingsDialog(self)
         dialog.exec_()
+
+    #Show use PrivilegeKey window
+    def show_UsePrivilegeKey_dialog(self):
+        dialog = UsePrivilegeKey()
+        if dialog.exec_() == QDialog.Accepted:
+            usePrivilegeKey  = dialog.get_use_privilege_key()
 
     #Opens the website for Pyspeak
     def open_website(self):
@@ -314,12 +392,12 @@ class VoiceChatClient(QMainWindow):
 
     # Show about PyQt dialog
     def show_aboutPySpeak_dialog(self):
-        dialog = AboutPySpeak(self)
+        dialog = AboutPySpeak(self.pySpeak_infoFile, self)
         dialog.exec_()
 
     # Show about PyQt dialog
     def show_aboutPyQT_dialog(self):
-        dialog = AboutPyQT(self)
+        dialog = AboutPyQT(self.pyqt5_infoFile, self)
         dialog.exec_()
 
     # Show changelog dialog
@@ -328,13 +406,18 @@ class VoiceChatClient(QMainWindow):
         dialog.exec_()
 
     #Server connections
-    async def connect_to_server(self, server_address, password, name):
+    async def connect_to_server(self, server_address, password, name, uid):
         try:
-            self.log_message(f"trying to connect to server on {server_address}")
+            self.log_message(f"Trying to connect to server on {server_address}")
             self.websocket = await websockets.connect(f'ws://{server_address}')
-            await self.websocket.send(json.dumps({'type': 'join', 'username': name, 'password': password}))
+            await self.websocket.send(json.dumps({'type': 'join', 'username': name, 'password': password, 'uid': uid}))
             self.log_message(f"Connected to {server_address} as {name}")
             self.current_username = name
+            self.current_uid = uid  # Spara UID
+            self.connection_start_time = datetime.now()
+            self.ping = 0
+            self.connectionInfoAction.setEnabled(True)
+            self.update_bookmark_actions()
             self.play_sound('assets/sound/connected.wav')
 
             asyncio.ensure_future(self.receive_messages())
@@ -345,10 +428,111 @@ class VoiceChatClient(QMainWindow):
         if self.websocket:
             await self.websocket.close()
             self.websocket = None
+            self.connectionInfoAction.setEnabled(False)
             self.log_message("Disconnected from server")
             self.play_sound('assets/sound/disconnected.wav')
+            self.update_bookmark_actions()
             self.roomList.clear()
             self.userInfo.clear()
+
+    async def receive_messages(self):
+        try:
+            async for message in self.websocket:
+                if isinstance(message, bytes):
+                    self.play_audio(message)
+                    self.update_statistics("speech", len(message))
+                else:
+                    data = json.loads(message)
+                    if data['type'] == 'info':
+                        self.log_message(data['message'])
+                    elif data['type'] == 'message':
+                        self.log_message(f"{data['username']}: {data['message']}")
+                    elif data['type'] == 'room_update':
+                        self.update_room_members(data['members'])
+                    elif data['type'] == 'room_list':
+                        self.update_room_list(data)
+                    elif data['type'] == 'error':
+                        self.log_message(f"Error: {data['message']}")
+                    elif data['type'] == 'talking':
+                        self.update_talking_status(data['username'], data['status'])
+                    elif data['type'] == 'ping':
+                        self.ping = data['ping']
+                    elif data['type'] == 'switched_room':
+                        self.log_message(data['message'])
+                        self.stop_audio_stream()  # Stop the current audio stream
+                        self.start_audio_stream()  # Start a new audio stream for the new room
+                        self.play_sound('assets/sound/channel_switched.wav')
+                    self.update_statistics(data['type'], len(message))
+        except websockets.ConnectionClosed:
+            self.log_message("Connection closed")
+
+    def get_uid_for_user(self, nickname):
+        conn = sqlite3.connect(db_file)
+        cursor = conn.cursor()
+        cursor.execute("SELECT uid FROM identities WHERE nickname=?", (nickname,))
+        row = cursor.fetchone()
+        if row:
+            uid = row[0]
+        else:
+            uid = str(uuid.uuid4())
+            cursor.execute('''
+                INSERT INTO identities (identity_name, nickname, uid)
+                VALUES (?, ?, ?)
+            ''', (nickname, nickname, uid))
+            conn.commit()
+        conn.close()
+        return uid
+
+    def get_connection_info(self):
+        if self.websocket:
+            connection_time = str(timedelta(seconds=int((datetime.now() - self.connection_start_time).total_seconds())))
+            return {
+                "client_name": self.current_username or "",
+                "connection_time": connection_time or "",
+                "idle_time": connection_time,  # Assuming no separate idle tracking for now
+                "ping": f"{self.ping} ms ± 0.6",  # Replace 0.6 with actual jitter if available
+                "client_address":  self.websocket.remote_address[0] if self.websocket.remote_address else "",  # Replace with actual client address
+                "total": {
+                    "packet_loss": "0.00",  # Replace with actual value
+                    "packets_transferred": self.statistics["total"]["packets_transferred"],
+                    "bytes_transferred": f"{self.statistics['total']['bytes_transferred'] / 1024:.2f} KiB",
+                    "bandwidth_last_second": f"{self.statistics['total']['bandwidth_last_second']} Bytes/s",
+                    "bandwidth_last_minute": f"{self.statistics['total']['bandwidth_last_minute']} Bytes/s",
+                    "file_transfer_bandwidth": f"{self.statistics['total']['file_transfer_bandwidth']} Bytes/s"
+                },
+                "speech": {
+                    "packets_transferred": self.statistics["speech"]["packets_transferred"],
+                    "bytes_transferred": f"{self.statistics['speech']['bytes_transferred'] / 1024:.2f} KiB",
+                    "bandwidth_last_second": f"{self.statistics['speech']['bandwidth_last_second']} Bytes/s",
+                    "bandwidth_last_minute": f"{self.statistics['speech']['bandwidth_last_minute']} Bytes/s"
+                },
+                "keep_alive": {
+                    "packets_transferred": self.statistics["keep_alive"]["packets_transferred"],
+                    "bytes_transferred": f"{self.statistics['keep_alive']['bytes_transferred'] / 1024:.2f} KiB",
+                    "bandwidth_last_second": f"{self.statistics['keep_alive']['bandwidth_last_second']} Bytes/s",
+                    "bandwidth_last_minute": f"{self.statistics['keep_alive']['bandwidth_last_minute']} Bytes/s"
+                },
+                "control": {
+                    "packets_transferred": self.statistics["control"]["packets_transferred"],
+                    "bytes_transferred": f"{self.statistics['control']['bytes_transferred'] / 1024:.2f} KiB",
+                    "bandwidth_last_second": f"{self.statistics['control']['bandwidth_last_second']} Bytes/s",
+                    "bandwidth_last_minute": f"{self.statistics['control']['bandwidth_last_minute']} Bytes/s"
+                },
+                "quota": {
+                    "bytes_transferred": f"{self.statistics['quota']['bytes_transferred'] / 1024:.2f} KiB",
+                    "bandwidth_last_second": f"{self.statistics['quota']['bandwidth_last_second']} Bytes/s",
+                    "bandwidth_last_minute": f"{self.statistics['quota']['bandwidth_last_minute']} Bytes/s"
+                }
+            }
+        return {}
+
+    def update_statistics(self, message_type, packet_size):
+        """Update statistics based on the message type and packet size."""
+        self.statistics["total"]["packets_transferred"] += 1
+        self.statistics["total"]["bytes_transferred"] += packet_size
+        if message_type in self.statistics:
+            self.statistics[message_type]["packets_transferred"] += 1
+            self.statistics[message_type]["bytes_transferred"] += packet_size
 
     def update_talking_status(self, username, is_talking):
         for i in range(self.userInfo.count()):
@@ -358,6 +542,7 @@ class VoiceChatClient(QMainWindow):
                 item.setIcon(icon)
                 break
 
+    #Updates rooms and members
     def update_room_members(self, members):
         self.userInfo.clear()
         for member in members:
@@ -378,15 +563,11 @@ class VoiceChatClient(QMainWindow):
         self.roomList.addItem(server_item)
 
         for room, room_data in self.room_list.items():
-            # Kontrollera om rummet är lösenordsskyddat
             room_icon = QIcon('assets/img/default_colored_2014/channel_yellow.svg') if room_data['password'] else QIcon('assets/img/default_colored_2014/channel_green.svg')
-
-            # Lägg till rumsnamn indenterat ett steg
             room_item = QListWidgetItem(f"  {room}")
             room_item.setIcon(room_icon)
             self.roomList.addItem(room_item)
             for user in room_data['members']:
-                # Lägg till användarnamn indenterat ytterligare ett steg
                 user_item = QListWidgetItem(f"    {user}")
                 user_item.setIcon(QIcon('assets/img/default_colored_2014/player_off.svg'))
                 self.roomList.addItem(user_item)
@@ -395,10 +576,10 @@ class VoiceChatClient(QMainWindow):
         room_name = item.text().strip()
         current_usernames = [self.current_username] + [user_item.text().strip() for user_item in self.userInfo.findItems(self.current_username, Qt.MatchExactly)]
         if room_name in current_usernames:
-            return  
+            return
 
         if room_name == self.server_name:
-            return  
+            return
 
         room_data = self.room_list.get(room_name, None)
         if room_data and room_data['password']:
@@ -406,21 +587,17 @@ class VoiceChatClient(QMainWindow):
             if dialog.exec_() == QDialog.Accepted:
                 password = dialog.get_password()
                 asyncio.ensure_future(self.websocket.send(json.dumps({'type': 'switch_room', 'new_room': room_name, 'room_password': password})))
-                self.stop_audio_stream()  # Stop the current audio stream
-                self.start_audio_stream()  # Start a new audio stream for the new room
-                self.play_sound('assets/sound/channel_switched.wav')
         else:
             asyncio.ensure_future(self.websocket.send(json.dumps({'type': 'switch_room', 'new_room': room_name})))
-            self.stop_audio_stream()  # Stop the current audio stream
-            self.start_audio_stream()
-            self.play_sound('assets/sound/channel_switched.wav')
 
+    #Message sender
     def send_message(self, name):
         message = self.messageInput.text()
         if message and self.websocket:
             asyncio.ensure_future(self.websocket.send(json.dumps({'type': 'message', 'message': message, 'username': name})))
             self.messageInput.clear()
 
+    #log messages
     def log_message(self, message):
         timestamp = datetime.now().strftime('%H:%M:%S')
         self.console.append(f"{timestamp} - {message}")
