@@ -24,7 +24,7 @@
 ## User Profiles
 
 ### Profile Information
-- Ability to save and display user information such as profile picture, status message, and contact information.
+- 
 
 ### Settings
 - Customizable settings for audio, notifications, and other preferences.
@@ -59,3 +59,7 @@
 ### Logging and Monitoring
 - Track user activity and server status using logging and monitoring.
 
+# Ideas
+- ## Centralized User Database
+
+Instead of having separate databases for each client and server, use a centralized database for user management that can be accessed by all servers and clients.
