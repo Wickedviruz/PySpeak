@@ -74,19 +74,21 @@ async def handler(websocket, path):
         await remove_client_from_room(client_id)
 
 async def remove_client_from_room(client_id):
-    if clients[client_id]['room']:
+    if client_id in clients and clients[client_id]['room']:
         room_name = clients[client_id]['room']
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute("SELECT members FROM rooms WHERE name=?", (room_name,))
         members = json.loads(cursor.fetchone()[0])
-        members.remove(client_id)
-        cursor.execute("UPDATE rooms SET members=? WHERE name=?", (json.dumps(members), room_name))
-        conn.commit()
+        if client_id in members:
+            members.remove(client_id)
+            cursor.execute("UPDATE rooms SET members=? WHERE name=?", (json.dumps(members), room_name))
+            conn.commit()
+            await update_room_members(room_name)
+            await update_room_list()
         conn.close()
-        await update_room_members(room_name)
-        await update_room_list()
-    del clients[client_id]
+    if client_id in clients:
+        del clients[client_id]
 
 async def process_message(client_id, data):
     message_type = data['type']
@@ -97,8 +99,12 @@ async def process_message(client_id, data):
         await handle_message(client_id, data)
     elif message_type == 'switch_room':
         await handle_switch_room(client_id, data)
-    elif message_type == 'create_room':
+    elif message_type == 'create_channel':
         await handle_create_room(client_id, data)
+    elif message_type == 'edit_channel':
+        await handle_edit_room(client_id, data)
+    elif message_type == 'delete_channel':
+        await handle_delete_room(client_id, data)
     elif message_type == 'audio':
         await handle_audio(client_id, data)
     elif message_type == 'talking':
@@ -117,7 +123,6 @@ async def handle_join(client_id, data, first_time=False):
     uid = data['uid']
     room_name = data.get('room', 'Lobby')
 
-    # Kontrollera serverlösenord om det finns
     if server_password and server_password != data.get('password'):
         await clients[client_id]['websocket'].send(json.dumps({'type': 'error', 'message': 'Invalid server password'}))
         return
@@ -125,12 +130,10 @@ async def handle_join(client_id, data, first_time=False):
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    # Sök efter användaren via UID
     cursor.execute("SELECT * FROM users WHERE uid=?", (uid,))
     user = cursor.fetchone()
 
     if not user:
-        # Skapa ny användare om det inte finns
         cursor.execute("INSERT INTO users (uid, username, password, role, is_superadmin) VALUES (?, ?, ?, ?, ?)",
                        (uid, username, 'default_password', 'user', False))
         conn.commit()
@@ -139,6 +142,7 @@ async def handle_join(client_id, data, first_time=False):
 
     clients[client_id]['username'] = username
     clients[client_id]['uid'] = uid
+    clients[client_id]['role'] = user[4]  # Assuming role is the 5th column
 
     cursor.execute("SELECT * FROM rooms WHERE name=?", (room_name,))
     room = cursor.fetchone()
@@ -159,7 +163,11 @@ async def handle_join(client_id, data, first_time=False):
     if first_time:
         await clients[client_id]['websocket'].send(json.dumps({'type': 'info', 'message': welcome_message}))
 
-    await clients[client_id]['websocket'].send(json.dumps({'type': 'info', 'message': f"Welcome to {room_name}, {username}!"}))
+    await clients[client_id]['websocket'].send(json.dumps({
+        'type': 'info',
+        'message': f"Welcome to {room_name}, {username}!",
+        'role': user[4]  # Skicka användarens roll till klienten
+    }))
 
     conn.close()
     await update_room_members(room_name)
@@ -261,9 +269,10 @@ async def handle_switch_room(client_id, data):
     if current_room_name:
         cursor.execute("SELECT members FROM rooms WHERE name=?", (current_room_name,))
         current_room_members = json.loads(cursor.fetchone()[0])
-        current_room_members.remove(client_id)
-        cursor.execute("UPDATE rooms SET members=? WHERE name=?", (json.dumps(current_room_members), current_room_name))
-        await update_room_members(current_room_name)
+        if client_id in current_room_members:
+            current_room_members.remove(client_id)
+            cursor.execute("UPDATE rooms SET members=? WHERE name=?", (json.dumps(current_room_members), current_room_name))
+            await update_room_members(current_room_name)
 
     # Lägg till användaren i det nya rummet
     cursor.execute("SELECT members FROM rooms WHERE name=?", (new_room_name,))
@@ -282,6 +291,10 @@ async def handle_switch_room(client_id, data):
     await update_room_list()
 
 async def handle_create_room(client_id, data):
+    if clients[client_id]['role'] not in ['admin', 'superadmin']:
+        await clients[client_id]['websocket'].send(json.dumps({'type': 'error', 'message': 'You do not have permission to create rooms.'}))
+        return
+
     room_name = data['room_name']
     room_password = data.get('room_password', None)
     conn = get_db_connection()
@@ -297,6 +310,48 @@ async def handle_create_room(client_id, data):
         await clients[client_id]['websocket'].send(json.dumps({'type': 'info', 'message': f"Room {room_name} created."}))
         await update_room_list()
     conn.close()
+
+async def handle_edit_room(client_id, data):
+    if not await is_admin(client_id):
+        await clients[client_id]['websocket'].send(json.dumps({'type': 'error', 'message': 'You do not have permission to edit rooms.'}))
+        return
+
+    room_name = data['room_name']
+    room_password = data.get('room_password', None)
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM rooms WHERE name=?", (room_name,))
+    room = cursor.fetchone()
+
+    if room:
+        cursor.execute("UPDATE rooms SET password=? WHERE name=?", (room_password, room_name))
+        conn.commit()
+        await clients[client_id]['websocket'].send(json.dumps({'type': 'info', 'message': f"Room {room_name} updated."}))
+        await update_room_list()
+    else:
+        await clients[client_id]['websocket'].send(json.dumps({'type': 'error', 'message': f"Room {room_name} does not exist."}))
+    conn.close()
+
+async def handle_delete_room(client_id, data):
+    if not await is_admin(client_id):
+        await clients[client_id]['websocket'].send(json.dumps({'type': 'error', 'message': 'You do not have permission to delete rooms.'}))
+        return
+
+    room_name = data['room_name']
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM rooms WHERE name=?", (room_name,))
+    room = cursor.fetchone()
+
+    if room:
+        cursor.execute("DELETE FROM rooms WHERE name=?", (room_name,))
+        conn.commit()
+        await clients[client_id]['websocket'].send(json.dumps({'type': 'info', 'message': f"Room {room_name} deleted."}))
+        await update_room_list()
+    else:
+        await clients[client_id]['websocket'].send(json.dumps({'type': 'error', 'message': f"Room {room_name} does not exist."}))
+    conn.close()
+
 
 async def handle_ban(client_id, data):
     if not await is_admin(client_id):
@@ -361,29 +416,37 @@ async def handle_use_privilege_key(client_id, data):
         role = result[0]
         cursor.execute("UPDATE users SET role=? WHERE uid=?", (role, clients[client_id]['uid']))
         conn.commit()
+        clients[client_id]['role'] = role  # Update role in clients dictionary
         await clients[client_id]['websocket'].send(json.dumps({'type': 'info', 'message': f'Privilege key used. Role updated to {role}.'}))
     else:
         await clients[client_id]['websocket'].send(json.dumps({'type': 'error', 'message': 'Invalid privilege key.'}))
 
     conn.close()
 
-async def is_admin(client_id):
+def get_user_role(uid):
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT role FROM users WHERE uid=?", (clients[client_id]['uid'],))
-    role = cursor.fetchone()[0]
+    cursor.execute("SELECT role FROM users WHERE uid=?", (uid,))
+    role = cursor.fetchone()
     conn.close()
-    return role == 'admin'
+    return role[0] if role else None
+
+async def is_admin(client_id):
+    uid = clients[client_id]['uid']
+    role = get_user_role(uid)
+    return role in ['admin', 'superadmin']
 
 async def update_room_members(room_name):
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT members FROM rooms WHERE name=?", (room_name,))
     members = json.loads(cursor.fetchone()[0])
-    member_details = [{'username': clients[client_id]['username'], 'id': client_id} for client_id in members]
+    
+    # Endast inkludera medlemmar som fortfarande är anslutna
+    member_details = [{'username': clients[client_id]['username'], 'id': client_id} for client_id in members if client_id in clients]
 
     for member_id in members:
-        if clients[member_id]['websocket'].open:
+        if member_id in clients and clients[member_id]['websocket'].open:
             await clients[member_id]['websocket'].send(json.dumps({'type': 'room_update', 'members': member_details}))
     conn.close()
 
@@ -392,8 +455,17 @@ async def update_room_list():
     cursor = conn.cursor()
     cursor.execute("SELECT name, password, members FROM rooms")
     rooms = cursor.fetchall()
-    room_list = {room[0]: {'members': [clients[client_id]['username'] for client_id in json.loads(room[2])], 'password': room[1]} for room in rooms}
-
+    
+    room_list = {}
+    for room in rooms:
+        room_name = room[0]
+        room_password = room[1]
+        room_members = json.loads(room[2])
+        
+        # Endast inkludera medlemmar som fortfarande är anslutna
+        valid_members = [clients[client_id]['username'] for client_id in room_members if client_id in clients]
+        room_list[room_name] = {'members': valid_members, 'password': room_password}
+    
     for client in clients.values():
         if client['websocket'].open:
             await client['websocket'].send(json.dumps({'type': 'room_list', 'rooms': room_list, 'server_name': server_name}))
@@ -401,7 +473,7 @@ async def update_room_list():
 
 async def main():
     database.init_db(db_file)
-    database.ensure_default_rooms(db_file)  # Se till att standardrum finns
+    database.ensure_default_rooms(db_file)
     database.create_initial_admin(db_file)
     database.create_initial_privilege_key(db_file)
 

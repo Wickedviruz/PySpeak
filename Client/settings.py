@@ -31,11 +31,9 @@ def create_database(db_file):
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS identities (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER,
         identity_name TEXT NOT NULL,
         uid TEXT UNIQUE NOT NULL,
-        nickname TEXT NOT NULL,
-        FOREIGN KEY(user_id) REFERENCES users(id)
+        nickname TEXT NOT NULL
     )
     ''')
 
@@ -66,6 +64,14 @@ def create_default_identity():
         ''', ('Default', 'User', str(uuid.uuid4())))
         conn.commit()
     conn.close()
+
+def load_default_identity(db_file=db_file):
+    conn = sqlite3.connect(db_file)
+    cursor = conn.cursor()
+    cursor.execute("SELECT identity_name, nickname, uid FROM identities WHERE id=1")
+    row = cursor.fetchone()
+    conn.close()
+    return {'identity_name': row[0], 'nickname': row[1], 'uid': row[2]} if row else None
 
 def save_settings_to_db(settings):
     try:
@@ -121,14 +127,6 @@ def save_bookmarks(bookmarks, db_file=db_file):
     
     conn.commit()
     conn.close()
-
-def load_default_identity(db_file=db_file):
-    conn = sqlite3.connect(db_file)
-    cursor = conn.cursor()
-    cursor.execute("SELECT identity_name, nickname, uid FROM identities WHERE id=1")
-    row = cursor.fetchone()
-    conn.close()
-    return {'identity_name': row[0], 'nickname': row[1], 'uid': row[2]} if row else None
 
 # Skapa databasen om den inte redan finns
 create_database(db_file)

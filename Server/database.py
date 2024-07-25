@@ -12,7 +12,7 @@ def init_db(db_file):
     CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         uid TEXT UNIQUE NOT NULL,
-        username TEXT UNIQUE NOT NULL,
+        username TEXT NOT NULL,
         password TEXT NOT NULL,
         role TEXT DEFAULT 'user',
         is_superadmin BOOLEAN DEFAULT 0
@@ -58,12 +58,6 @@ def init_db(db_file):
         description TEXT
     )
     ''')
-
-    cursor.execute('''
-    CREATE TABLE IF NOT EXISTS server_admin_token (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        token TEXT UNIQUE NOT NULL
-    )''')
 
     conn.commit()
     conn.close()

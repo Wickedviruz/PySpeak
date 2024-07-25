@@ -1,12 +1,11 @@
 import sys
-import os
 import threading
 import sqlite3
 import secrets
 import logging
-from PyQt5.QtWidgets import (QApplication, QMainWindow, QVBoxLayout, QHBoxLayout,
-                             QWidget, QTextEdit, QPushButton, QLabel, QLineEdit, QMessageBox, QGridLayout)
-from PyQt5.QtCore import QTimer, Qt
+from PyQt5.QtWidgets import (QApplication, QMainWindow, QVBoxLayout,
+                             QWidget, QTextEdit, QLabel, QLineEdit, QGridLayout)
+from PyQt5.QtCore import QTimer
 import hashlib
 import asyncio
 import database
@@ -24,7 +23,7 @@ class ServerGUI(QMainWindow):
         self.start_server()
 
     def initUI(self):
-        self.setWindowTitle('Server GUI')
+        self.setWindowTitle('PySpeak Server')
         self.setGeometry(100, 100, 600, 400)
 
         mainLayout = QVBoxLayout()
@@ -41,7 +40,6 @@ class ServerGUI(QMainWindow):
         self.adminUserInput.setReadOnly(True)
         self.adminPassLabel = QLabel('Password:')
         self.adminPassInput = QLineEdit(self)
-        self.adminPassInput.setEchoMode(QLineEdit.Password)
         self.adminPassInput.setReadOnly(True)
 
         self.tokenLabel = QLabel('Server Admin Token:')
@@ -87,7 +85,7 @@ class ServerGUI(QMainWindow):
 
         if not admin:
             admin_username = 'admin'
-            admin_password = secrets.token_urlsafe(16)
+            admin_password = secrets.token_urlsafe(8)
             hashed_password = hashlib.sha256(admin_password.encode()).hexdigest()
             cursor.execute("INSERT INTO users (uid, username, password, role, is_superadmin) VALUES (?, ?, ?, ?, ?)",
                            (secrets.token_hex(16), admin_username, hashed_password, 'superadmin', True))
@@ -104,21 +102,18 @@ class ServerGUI(QMainWindow):
         conn = sqlite3.connect('DB/pyspeak.db')
         cursor = conn.cursor()
 
-        cursor.execute("SELECT * FROM server_admin_token")
+        cursor.execute("SELECT key FROM privilege_keys WHERE role='superadmin'")
         token = cursor.fetchone()
 
         if not token:
             token_key = secrets.token_urlsafe(32)
-            cursor.execute("INSERT INTO server_admin_token (token) VALUES (?)", (token_key,))
+            cursor.execute("INSERT INTO privilege_keys (key, role, description) VALUES (?, 'superadmin', 'Initial server admin privilege key')", (token_key,))
             conn.commit()
             self.tokenDisplay.setText(token_key)
         else:
-            self.tokenDisplay.setText(token[1])
+            self.tokenDisplay.setText(token[0])
 
         conn.close()
-
-    def show_token(self):
-        self.tokenDisplay.setEchoMode(QLineEdit.Normal)
 
     def start_server(self):
         self.server_thread = threading.Thread(target=self.run_server)

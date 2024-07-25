@@ -387,9 +387,9 @@ class UsePrivilegeKey(QDialog):
         self.initUI()
 
     def initUI(self):
-        self.setWindowTitle('Use privilege key')
+        self.setWindowTitle('Use Privilege Key')
         self.setWindowIcon(QIcon('assets/img/default_colored_2014/token_use.svg'))
-        self.setGeometry(100, 100, 225, 100)
+        self.setGeometry(100, 100, 300, 150)
 
         layout = QVBoxLayout()
 

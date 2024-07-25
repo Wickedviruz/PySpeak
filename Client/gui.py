@@ -11,7 +11,7 @@ from audio import AudioThread
 
 #PyQt imports
 from PyQt5.QtMultimedia import QMediaPlayer,QMediaContent
-from PyQt5.QtWidgets import QMainWindow, QVBoxLayout, QHBoxLayout, QWidget, QListWidget, QListWidgetItem, QPushButton, QTextEdit, QLineEdit, QAction, QSplitter, QDialog
+from PyQt5.QtWidgets import QMainWindow, QVBoxLayout, QHBoxLayout, QWidget, QListWidget, QListWidgetItem, QPushButton, QTextEdit, QLineEdit, QAction, QSplitter, QDialog, QMenu, QInputDialog, QMessageBox
 from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import Qt, QUrl
 
@@ -37,6 +37,8 @@ class VoiceChatClient(QMainWindow):
         self.websocket = None
         self.server_name = None
         self.current_username = None
+        self.current_role = None
+        self.current_uid = None
         self.connection_info_dialog = None
         self.connection_start_time = None 
         self.ping = 0
@@ -136,7 +138,7 @@ class VoiceChatClient(QMainWindow):
         permissionsMenu.addAction(privilegeKeyAction)
 
         usePrivilegeKeyAction = QAction(QIcon('assets/img/default_colored_2014/token_use.svg'),'Use Privilege Key', self)
-        usePrivilegeKeyAction.triggered.connect(self.show_UsePrivilegeKey_dialog)
+        usePrivilegeKeyAction.triggered.connect(self.show_use_privilege_key_dialog)
         permissionsMenu.addAction(usePrivilegeKeyAction)
         
         identitiesAction = QAction(QIcon('assets/img/default_colored_2014/settings.svg'), 'Identities', self)
@@ -175,6 +177,8 @@ class VoiceChatClient(QMainWindow):
 
         self.roomList = QListWidget()
         self.roomList.itemClicked.connect(self.switch_room)
+        self.roomList.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.roomList.customContextMenuRequested.connect(self.show_room_context_menu)
         splitter_top.addWidget(self.roomList)
 
         self.userInfo = QListWidget()
@@ -306,7 +310,7 @@ class VoiceChatClient(QMainWindow):
         dialog = ConnectDialog()
         if dialog.exec_() == QDialog.Accepted:
             server_address, password, name = dialog.get_connection_info()
-            uid = self.get_uid_for_user(name)  # Hämta UID för användaren
+            uid = self.current_identity['uid']  # Använd UID från den aktuella identiteten
             asyncio.ensure_future(self.connect_to_server(server_address, password, name, uid))
 
     #Bookmarks management
@@ -358,7 +362,7 @@ class VoiceChatClient(QMainWindow):
 
     def connect_to_bookmark(self, bookmark):
         print(f"Connecting to {bookmark['name']} at {bookmark['address']}")
-        uid = self.get_uid_for_user(bookmark['nickname'])  # Hämta UID för användaren i bokmärket
+        uid = self.current_identity['uid']  # Använd UID från den aktuella identiteten
         asyncio.ensure_future(self.connect_to_server(bookmark['address'], bookmark['password'], bookmark['nickname'], uid))
 
 
@@ -393,10 +397,17 @@ class VoiceChatClient(QMainWindow):
         dialog.exec_()
 
     #Show use PrivilegeKey window
-    def show_UsePrivilegeKey_dialog(self):
-        dialog = UsePrivilegeKey()
+    def show_use_privilege_key_dialog(self):
+        dialog = UsePrivilegeKey(self)
         if dialog.exec_() == QDialog.Accepted:
-            usePrivilegeKey  = dialog.get_use_privilege_key()
+            privilege_key = dialog.get_use_privilege_key()
+            asyncio.ensure_future(self.send_privilege_key(privilege_key))
+
+    async def send_privilege_key(self, key):
+        try:
+            await self.websocket.send(json.dumps({'type': 'use_privilege_key', 'key': key}))
+        except Exception as e:
+            self.log_message(f"Failed to send privilege key: {str(e)}")
 
     #Opens the website for Pyspeak
     def open_website(self):
@@ -462,6 +473,8 @@ class VoiceChatClient(QMainWindow):
                     data = json.loads(message)
                     if data['type'] == 'info':
                         self.log_message(data['message'])
+                        if 'role' in data:
+                            self.current_role = data['role']
                     elif data['type'] == 'message':
                         self.log_message(f"{data['username']}: {data['message']}")
                     elif data['type'] == 'room_update':
@@ -500,7 +513,7 @@ class VoiceChatClient(QMainWindow):
             conn.commit()
         conn.close()
         return uid
-
+        
     def get_connection_info(self):
         if self.websocket:
             connection_time = str(timedelta(seconds=int((datetime.now() - self.connection_start_time).total_seconds())))
@@ -607,6 +620,51 @@ class VoiceChatClient(QMainWindow):
                 asyncio.ensure_future(self.websocket.send(json.dumps({'type': 'switch_room', 'new_room': room_name, 'room_password': password})))
         else:
             asyncio.ensure_future(self.websocket.send(json.dumps({'type': 'switch_room', 'new_room': room_name})))
+
+    def show_room_context_menu(self, position):
+        item = self.roomList.itemAt(position)
+        if not item:
+            return
+
+        menu = QMenu()
+
+        create_channel_action = QAction('Create Channel', self)
+        create_channel_action.triggered.connect(self.create_channel)
+        delete_channel_action = QAction('Delete Channel', self)
+        delete_channel_action.triggered.connect(self.delete_channel)
+        edit_channel_action = QAction('Edit Channel', self)
+        edit_channel_action.triggered.connect(self.edit_channel)
+
+        if self.current_role != 'admin' and self.current_role != 'superadmin':
+            create_channel_action.setDisabled(True)
+            delete_channel_action.setDisabled(True)
+            edit_channel_action.setDisabled(True)
+
+        menu.addAction(create_channel_action)
+        menu.addAction(delete_channel_action)
+        menu.addAction(edit_channel_action)
+
+        menu.exec_(self.roomList.viewport().mapToGlobal(position))
+
+    def create_channel(self):
+        room_name, ok = QInputDialog.getText(self, 'Create Room', 'Enter room name:')
+        if ok and room_name:
+            password, ok = QInputDialog.getText(self, 'Create Room', 'Enter room password (optional):')
+            if ok:
+                asyncio.ensure_future(self.websocket.send(json.dumps({'type': 'create_channel', 'room_name': room_name, 'room_password': password})))
+
+    def edit_channel(self, room_name):
+        password, ok = QInputDialog.getText(self, 'Edit Room', 'Enter new room password (leave blank to remove):')
+        if ok:
+            asyncio.ensure_future(self.websocket.send(json.dumps({'type': 'delete_channel', 'room_name': room_name, 'room_password': password})))
+
+    def delete_channel(self, room_name):
+        reply = QMessageBox.question(self, 'Delete Room', f"Are you sure you want to delete the room '{room_name}'?", QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+        if reply == QMessageBox.Yes:
+            asyncio.ensure_future(self.websocket.send(json.dumps({'type': 'edit_channel', 'room_name': room_name})))
+
+    def is_admin(self):
+        return self.role in ('admin', 'superadmin')
 
     #Message sender
     def send_message(self, name):

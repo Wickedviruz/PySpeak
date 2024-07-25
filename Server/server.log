@@ -69,3 +69,376 @@ sqlite3.OperationalError: table users has no column named password
 2024-07-25 19:16:53,229 - INFO - server listening on 127.0.0.1:8765
 2024-07-25 19:17:04,275 - INFO - connection open
 2024-07-25 19:17:38,824 - INFO - connection closed
+2024-07-25 19:23:44,284 - INFO - Server started
+2024-07-25 19:23:44,624 - INFO - server listening on 127.0.0.1:8765
+2024-07-25 19:23:44,625 - INFO - server listening on [::1]:8765
+2024-07-25 19:35:03,629 - INFO - Server started
+2024-07-25 19:35:03,967 - INFO - server listening on [::1]:8765
+2024-07-25 19:35:03,967 - INFO - server listening on 127.0.0.1:8765
+2024-07-25 19:35:10,406 - INFO - connection open
+2024-07-25 19:35:10,408 - ERROR - connection handler failed
+Traceback (most recent call last):
+  File "C:\Users\johan\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\websockets\legacy\server.py", line 236, in handler
+    await self.ws_handler(self)
+  File "C:\Users\johan\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\websockets\legacy\server.py", line 1175, in _ws_handler
+    return await cast(
+           ^^^^^^^^^^^
+  File "C:\Users\johan\OneDrive\Dokument\PySpeak\Server\server.py", line 70, in handler
+    await process_message(client_id, data)
+  File "C:\Users\johan\OneDrive\Dokument\PySpeak\Server\server.py", line 95, in process_message
+    await handle_join(client_id, data, first_time=True)
+  File "C:\Users\johan\OneDrive\Dokument\PySpeak\Server\server.py", line 134, in handle_join
+    cursor.execute("INSERT INTO users (uid, username, password, role, is_superadmin) VALUES (?, ?, ?, ?, ?)",
+sqlite3.IntegrityError: UNIQUE constraint failed: users.username
+2024-07-25 19:35:10,419 - INFO - connection closed
+2024-07-25 19:38:38,581 - INFO - Server started
+2024-07-25 19:38:38,901 - INFO - server listening on [::1]:8765
+2024-07-25 19:38:38,901 - INFO - server listening on 127.0.0.1:8765
+2024-07-25 19:38:44,863 - INFO - connection open
+2024-07-25 19:38:44,865 - ERROR - connection handler failed
+Traceback (most recent call last):
+  File "C:\Users\johan\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\websockets\legacy\server.py", line 236, in handler
+    await self.ws_handler(self)
+  File "C:\Users\johan\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\websockets\legacy\server.py", line 1175, in _ws_handler
+    return await cast(
+           ^^^^^^^^^^^
+  File "C:\Users\johan\OneDrive\Dokument\PySpeak\Server\server.py", line 70, in handler
+    await process_message(client_id, data)
+  File "C:\Users\johan\OneDrive\Dokument\PySpeak\Server\server.py", line 95, in process_message
+    await handle_join(client_id, data, first_time=True)
+  File "C:\Users\johan\OneDrive\Dokument\PySpeak\Server\server.py", line 134, in handle_join
+    cursor.execute("INSERT INTO users (uid, username, password, role, is_superadmin) VALUES (?, ?, ?, ?, ?)",
+sqlite3.IntegrityError: UNIQUE constraint failed: users.username
+2024-07-25 19:38:44,867 - INFO - connection closed
+2024-07-25 19:40:02,052 - INFO - connection open
+2024-07-25 19:40:07,081 - ERROR - connection handler failed
+Traceback (most recent call last):
+  File "C:\Users\johan\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\websockets\legacy\server.py", line 236, in handler
+    await self.ws_handler(self)
+  File "C:\Users\johan\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\websockets\legacy\server.py", line 1175, in _ws_handler
+    return await cast(
+           ^^^^^^^^^^^
+  File "C:\Users\johan\OneDrive\Dokument\PySpeak\Server\server.py", line 70, in handler
+    await process_message(client_id, data)
+  File "C:\Users\johan\OneDrive\Dokument\PySpeak\Server\server.py", line 95, in process_message
+    await handle_join(client_id, data, first_time=True)
+  File "C:\Users\johan\OneDrive\Dokument\PySpeak\Server\server.py", line 134, in handle_join
+    cursor.execute("INSERT INTO users (uid, username, password, role, is_superadmin) VALUES (?, ?, ?, ?, ?)",
+sqlite3.OperationalError: database is locked
+2024-07-25 19:40:07,083 - INFO - connection closed
+2024-07-25 19:40:43,791 - INFO - Server started
+2024-07-25 19:40:44,110 - INFO - server listening on [::1]:8765
+2024-07-25 19:40:44,111 - INFO - server listening on 127.0.0.1:8765
+2024-07-25 19:40:56,538 - INFO - connection open
+2024-07-25 19:41:40,029 - INFO - connection closed
+2024-07-25 19:41:42,100 - INFO - connection open
+2024-07-25 19:41:42,101 - ERROR - connection handler failed
+Traceback (most recent call last):
+  File "C:\Users\johan\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\websockets\legacy\server.py", line 236, in handler
+    await self.ws_handler(self)
+  File "C:\Users\johan\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\websockets\legacy\server.py", line 1175, in _ws_handler
+    return await cast(
+           ^^^^^^^^^^^
+  File "C:\Users\johan\OneDrive\Dokument\PySpeak\Server\server.py", line 70, in handler
+    await process_message(client_id, data)
+  File "C:\Users\johan\OneDrive\Dokument\PySpeak\Server\server.py", line 95, in process_message
+    await handle_join(client_id, data, first_time=True)
+  File "C:\Users\johan\OneDrive\Dokument\PySpeak\Server\server.py", line 134, in handle_join
+    cursor.execute("INSERT INTO users (uid, username, password, role, is_superadmin) VALUES (?, ?, ?, ?, ?)",
+sqlite3.IntegrityError: UNIQUE constraint failed: users.username
+2024-07-25 19:41:42,104 - INFO - connection closed
+2024-07-25 19:46:25,543 - INFO - Server started
+2024-07-25 19:46:25,904 - INFO - server listening on [::1]:8765
+2024-07-25 19:46:25,904 - INFO - server listening on 127.0.0.1:8765
+2024-07-25 19:46:36,474 - INFO - connection open
+2024-07-25 19:46:36,476 - ERROR - connection handler failed
+Traceback (most recent call last):
+  File "C:\Users\johan\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\websockets\legacy\server.py", line 236, in handler
+    await self.ws_handler(self)
+  File "C:\Users\johan\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\websockets\legacy\server.py", line 1175, in _ws_handler
+    return await cast(
+           ^^^^^^^^^^^
+  File "C:\Users\johan\OneDrive\Dokument\PySpeak\Server\server.py", line 70, in handler
+    await process_message(client_id, data)
+  File "C:\Users\johan\OneDrive\Dokument\PySpeak\Server\server.py", line 95, in process_message
+    await handle_join(client_id, data, first_time=True)
+  File "C:\Users\johan\OneDrive\Dokument\PySpeak\Server\server.py", line 134, in handle_join
+    cursor.execute("INSERT INTO users (uid, username, password, role, is_superadmin) VALUES (?, ?, ?, ?, ?)",
+sqlite3.IntegrityError: UNIQUE constraint failed: users.username
+2024-07-25 19:46:36,477 - INFO - connection closed
+2024-07-25 19:46:53,756 - INFO - connection open
+2024-07-25 19:46:58,782 - ERROR - connection handler failed
+Traceback (most recent call last):
+  File "C:\Users\johan\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\websockets\legacy\server.py", line 236, in handler
+    await self.ws_handler(self)
+  File "C:\Users\johan\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\websockets\legacy\server.py", line 1175, in _ws_handler
+    return await cast(
+           ^^^^^^^^^^^
+  File "C:\Users\johan\OneDrive\Dokument\PySpeak\Server\server.py", line 70, in handler
+    await process_message(client_id, data)
+  File "C:\Users\johan\OneDrive\Dokument\PySpeak\Server\server.py", line 95, in process_message
+    await handle_join(client_id, data, first_time=True)
+  File "C:\Users\johan\OneDrive\Dokument\PySpeak\Server\server.py", line 134, in handle_join
+    cursor.execute("INSERT INTO users (uid, username, password, role, is_superadmin) VALUES (?, ?, ?, ?, ?)",
+sqlite3.OperationalError: database is locked
+2024-07-25 19:46:58,783 - INFO - connection closed
+2024-07-25 19:47:03,927 - INFO - Server started
+2024-07-25 19:47:04,304 - INFO - server listening on 127.0.0.1:8765
+2024-07-25 19:47:04,304 - INFO - server listening on [::1]:8765
+2024-07-25 19:47:14,072 - INFO - connection open
+2024-07-25 19:47:18,817 - INFO - connection closed
+2024-07-25 19:47:25,407 - INFO - connection open
+2024-07-25 19:47:41,870 - INFO - connection open
+2024-07-25 19:47:41,871 - ERROR - connection handler failed
+Traceback (most recent call last):
+  File "C:\Users\johan\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\websockets\legacy\server.py", line 236, in handler
+    await self.ws_handler(self)
+  File "C:\Users\johan\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\websockets\legacy\server.py", line 1175, in _ws_handler
+    return await cast(
+           ^^^^^^^^^^^
+  File "C:\Users\johan\OneDrive\Dokument\PySpeak\Server\server.py", line 70, in handler
+    await process_message(client_id, data)
+  File "C:\Users\johan\OneDrive\Dokument\PySpeak\Server\server.py", line 95, in process_message
+    await handle_join(client_id, data, first_time=True)
+  File "C:\Users\johan\OneDrive\Dokument\PySpeak\Server\server.py", line 134, in handle_join
+    cursor.execute("INSERT INTO users (uid, username, password, role, is_superadmin) VALUES (?, ?, ?, ?, ?)",
+sqlite3.IntegrityError: UNIQUE constraint failed: users.username
+2024-07-25 19:47:41,872 - INFO - connection closed
+2024-07-25 19:48:07,827 - INFO - connection open
+2024-07-25 19:48:12,850 - ERROR - connection handler failed
+Traceback (most recent call last):
+  File "C:\Users\johan\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\websockets\legacy\server.py", line 236, in handler
+    await self.ws_handler(self)
+  File "C:\Users\johan\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\websockets\legacy\server.py", line 1175, in _ws_handler
+    return await cast(
+           ^^^^^^^^^^^
+  File "C:\Users\johan\OneDrive\Dokument\PySpeak\Server\server.py", line 70, in handler
+    await process_message(client_id, data)
+  File "C:\Users\johan\OneDrive\Dokument\PySpeak\Server\server.py", line 95, in process_message
+    await handle_join(client_id, data, first_time=True)
+  File "C:\Users\johan\OneDrive\Dokument\PySpeak\Server\server.py", line 134, in handle_join
+    cursor.execute("INSERT INTO users (uid, username, password, role, is_superadmin) VALUES (?, ?, ?, ?, ?)",
+sqlite3.OperationalError: database is locked
+2024-07-25 19:48:12,851 - INFO - connection closed
+2024-07-25 19:48:17,427 - INFO - Server started
+2024-07-25 19:48:17,787 - INFO - server listening on [::1]:8765
+2024-07-25 19:48:17,788 - INFO - server listening on 127.0.0.1:8765
+2024-07-25 19:48:21,135 - INFO - connection open
+2024-07-25 19:48:21,137 - ERROR - connection handler failed
+Traceback (most recent call last):
+  File "C:\Users\johan\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\websockets\legacy\server.py", line 236, in handler
+    await self.ws_handler(self)
+  File "C:\Users\johan\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\websockets\legacy\server.py", line 1175, in _ws_handler
+    return await cast(
+           ^^^^^^^^^^^
+  File "C:\Users\johan\OneDrive\Dokument\PySpeak\Server\server.py", line 70, in handler
+    await process_message(client_id, data)
+  File "C:\Users\johan\OneDrive\Dokument\PySpeak\Server\server.py", line 95, in process_message
+    await handle_join(client_id, data, first_time=True)
+  File "C:\Users\johan\OneDrive\Dokument\PySpeak\Server\server.py", line 134, in handle_join
+    cursor.execute("INSERT INTO users (uid, username, password, role, is_superadmin) VALUES (?, ?, ?, ?, ?)",
+sqlite3.IntegrityError: UNIQUE constraint failed: users.username
+2024-07-25 19:48:21,138 - INFO - connection closed
+2024-07-25 20:32:24,571 - INFO - Server started
+2024-07-25 20:32:24,889 - INFO - server listening on 127.0.0.1:8765
+2024-07-25 20:32:24,890 - INFO - server listening on [::1]:8765
+2024-07-25 20:32:35,581 - INFO - Server started
+2024-07-25 20:32:35,896 - INFO - Privilege key for server admin: ozXY7Q_UJKhSWW2lU5PsAKbMEsW1Goas
+2024-07-25 20:32:35,938 - INFO - server listening on 127.0.0.1:8765
+2024-07-25 20:32:35,938 - INFO - server listening on [::1]:8765
+2024-07-25 20:32:57,648 - INFO - connection open
+2024-07-25 20:33:27,615 - INFO - connection closed
+2024-07-25 20:33:56,382 - INFO - connection open
+2024-07-25 20:36:19,790 - INFO - connection closed
+2024-07-25 20:36:22,096 - INFO - connection open
+2024-07-25 20:37:15,572 - INFO - connection closed
+2024-07-25 20:37:35,691 - INFO - connection open
+2024-07-25 20:37:57,301 - INFO - connection closed
+2024-07-25 20:41:40,257 - INFO - Server started
+2024-07-25 20:41:40,599 - INFO - server listening on 127.0.0.1:8765
+2024-07-25 20:41:40,599 - INFO - server listening on [::1]:8765
+2024-07-25 20:41:50,336 - INFO - connection open
+2024-07-25 20:42:06,757 - INFO - connection closed
+2024-07-25 20:42:11,238 - INFO - connection open
+2024-07-25 20:42:39,255 - INFO - connection closed
+2024-07-25 20:51:11,821 - INFO - Server started
+2024-07-25 20:51:12,152 - INFO - server listening on [::1]:8765
+2024-07-25 20:51:12,152 - INFO - server listening on 127.0.0.1:8765
+2024-07-25 20:51:30,886 - INFO - connection open
+2024-07-25 21:07:43,668 - INFO - connection closed
+2024-07-25 21:07:59,198 - INFO - Server started
+2024-07-25 21:10:23,040 - INFO - Server started
+2024-07-25 21:11:19,464 - INFO - Server started
+2024-07-25 21:14:48,313 - INFO - Server started
+2024-07-25 21:14:48,685 - INFO - server listening on [::1]:8765
+2024-07-25 21:14:48,686 - INFO - server listening on 127.0.0.1:8765
+2024-07-25 21:15:45,998 - INFO - connection open
+2024-07-25 21:16:00,218 - INFO - connection closed
+2024-07-25 21:16:33,049 - INFO - connection open
+2024-07-25 21:16:52,107 - INFO - connection closed
+2024-07-25 22:04:09,769 - INFO - Server started
+2024-07-25 22:04:10,259 - INFO - server listening on 127.0.0.1:8765
+2024-07-25 22:04:10,259 - INFO - server listening on [::1]:8765
+2024-07-25 22:04:25,149 - INFO - connection open
+2024-07-25 22:04:29,504 - INFO - connection closed
+2024-07-25 22:05:21,397 - INFO - connection open
+2024-07-25 22:05:24,282 - INFO - connection closed
+2024-07-25 22:08:58,893 - INFO - connection open
+2024-07-25 22:09:02,129 - INFO - connection closed
+2024-07-25 22:18:50,055 - INFO - Server started
+2024-07-25 22:18:50,389 - INFO - server listening on [::1]:8765
+2024-07-25 22:18:50,390 - INFO - server listening on 127.0.0.1:8765
+2024-07-25 22:18:59,209 - INFO - connection open
+2024-07-25 22:19:04,749 - INFO - connection closed
+2024-07-25 22:21:35,459 - INFO - Server started
+2024-07-25 22:21:35,801 - INFO - server listening on [::1]:8765
+2024-07-25 22:21:35,802 - INFO - server listening on 127.0.0.1:8765
+2024-07-25 22:21:44,495 - INFO - connection open
+2024-07-25 22:26:53,038 - INFO - Server started
+2024-07-25 22:26:53,365 - INFO - server listening on [::1]:8765
+2024-07-25 22:26:53,366 - INFO - server listening on 127.0.0.1:8765
+2024-07-25 22:26:59,889 - INFO - connection open
+2024-07-25 22:26:59,899 - ERROR - connection handler failed
+Traceback (most recent call last):
+  File "C:\Users\johan\OneDrive\Dokument\PySpeak\Server\server.py", line 70, in handler
+    await process_message(client_id, data)
+  File "C:\Users\johan\OneDrive\Dokument\PySpeak\Server\server.py", line 95, in process_message
+    await handle_join(client_id, data, first_time=True)
+  File "C:\Users\johan\OneDrive\Dokument\PySpeak\Server\server.py", line 171, in handle_join
+    await update_room_members(room_name)
+  File "C:\Users\johan\OneDrive\Dokument\PySpeak\Server\server.py", line 435, in update_room_members
+    member_details = [{'username': clients[client_id]['username'], 'id': client_id} for client_id in members]
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\johan\OneDrive\Dokument\PySpeak\Server\server.py", line 435, in <listcomp>
+    member_details = [{'username': clients[client_id]['username'], 'id': client_id} for client_id in members]
+                                   ~~~~~~~^^^^^^^^^^^
+KeyError: '1f47718c-31ab-484c-b517-a547eeb694b6'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\johan\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\websockets\legacy\server.py", line 236, in handler
+    await self.ws_handler(self)
+  File "C:\Users\johan\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\websockets\legacy\server.py", line 1175, in _ws_handler
+    return await cast(
+           ^^^^^^^^^^^
+  File "C:\Users\johan\OneDrive\Dokument\PySpeak\Server\server.py", line 74, in handler
+    await remove_client_from_room(client_id)
+  File "C:\Users\johan\OneDrive\Dokument\PySpeak\Server\server.py", line 87, in remove_client_from_room
+    await update_room_members(room_name)
+  File "C:\Users\johan\OneDrive\Dokument\PySpeak\Server\server.py", line 435, in update_room_members
+    member_details = [{'username': clients[client_id]['username'], 'id': client_id} for client_id in members]
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\johan\OneDrive\Dokument\PySpeak\Server\server.py", line 435, in <listcomp>
+    member_details = [{'username': clients[client_id]['username'], 'id': client_id} for client_id in members]
+                                   ~~~~~~~^^^^^^^^^^^
+KeyError: '1f47718c-31ab-484c-b517-a547eeb694b6'
+2024-07-25 22:26:59,911 - INFO - connection closed
+2024-07-25 22:34:59,623 - INFO - Server started
+2024-07-25 22:34:59,969 - INFO - server listening on 127.0.0.1:8765
+2024-07-25 22:34:59,969 - INFO - server listening on [::1]:8765
+2024-07-25 22:35:05,121 - INFO - connection open
+2024-07-25 22:35:05,132 - ERROR - connection handler failed
+Traceback (most recent call last):
+  File "C:\Users\johan\OneDrive\Dokument\PySpeak\Server\server.py", line 70, in handler
+    await process_message(client_id, data)
+  File "C:\Users\johan\OneDrive\Dokument\PySpeak\Server\server.py", line 97, in process_message
+    await handle_join(client_id, data, first_time=True)
+  File "C:\Users\johan\OneDrive\Dokument\PySpeak\Server\server.py", line 174, in handle_join
+    await update_room_list()
+  File "C:\Users\johan\OneDrive\Dokument\PySpeak\Server\server.py", line 450, in update_room_list
+    room_list = {room[0]: {'members': [clients[client_id]['username'] for client_id in json.loads(room[2])], 'password': room[1]} for room in rooms}
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\johan\OneDrive\Dokument\PySpeak\Server\server.py", line 450, in <dictcomp>
+    room_list = {room[0]: {'members': [clients[client_id]['username'] for client_id in json.loads(room[2])], 'password': room[1]} for room in rooms}
+                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\johan\OneDrive\Dokument\PySpeak\Server\server.py", line 450, in <listcomp>
+    room_list = {room[0]: {'members': [clients[client_id]['username'] for client_id in json.loads(room[2])], 'password': room[1]} for room in rooms}
+                                       ~~~~~~~^^^^^^^^^^^
+KeyError: '1f47718c-31ab-484c-b517-a547eeb694b6'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\johan\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\websockets\legacy\server.py", line 236, in handler
+    await self.ws_handler(self)
+  File "C:\Users\johan\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\websockets\legacy\server.py", line 1175, in _ws_handler
+    return await cast(
+           ^^^^^^^^^^^
+  File "C:\Users\johan\OneDrive\Dokument\PySpeak\Server\server.py", line 74, in handler
+    await remove_client_from_room(client_id)
+  File "C:\Users\johan\OneDrive\Dokument\PySpeak\Server\server.py", line 88, in remove_client_from_room
+    await update_room_list()
+  File "C:\Users\johan\OneDrive\Dokument\PySpeak\Server\server.py", line 450, in update_room_list
+    room_list = {room[0]: {'members': [clients[client_id]['username'] for client_id in json.loads(room[2])], 'password': room[1]} for room in rooms}
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\johan\OneDrive\Dokument\PySpeak\Server\server.py", line 450, in <dictcomp>
+    room_list = {room[0]: {'members': [clients[client_id]['username'] for client_id in json.loads(room[2])], 'password': room[1]} for room in rooms}
+                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\johan\OneDrive\Dokument\PySpeak\Server\server.py", line 450, in <listcomp>
+    room_list = {room[0]: {'members': [clients[client_id]['username'] for client_id in json.loads(room[2])], 'password': room[1]} for room in rooms}
+                                       ~~~~~~~^^^^^^^^^^^
+KeyError: '1f47718c-31ab-484c-b517-a547eeb694b6'
+2024-07-25 22:35:05,134 - INFO - connection closed
+2024-07-25 22:37:59,069 - INFO - Server started
+2024-07-25 22:37:59,421 - INFO - server listening on [::1]:8765
+2024-07-25 22:37:59,421 - INFO - server listening on 127.0.0.1:8765
+2024-07-25 22:38:07,297 - INFO - connection open
+2024-07-25 22:38:16,868 - ERROR - connection handler failed
+Traceback (most recent call last):
+  File "C:\Users\johan\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\websockets\legacy\server.py", line 236, in handler
+    await self.ws_handler(self)
+  File "C:\Users\johan\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\websockets\legacy\server.py", line 1175, in _ws_handler
+    return await cast(
+           ^^^^^^^^^^^
+  File "C:\Users\johan\OneDrive\Dokument\PySpeak\Server\server.py", line 70, in handler
+    await process_message(client_id, data)
+  File "C:\Users\johan\OneDrive\Dokument\PySpeak\Server\server.py", line 107, in process_message
+    await handle_delete_room(client_id, data)
+  File "C:\Users\johan\OneDrive\Dokument\PySpeak\Server\server.py", line 336, in handle_delete_room
+    if not await is_admin(client_id):
+                 ^^^^^^^^
+NameError: name 'is_admin' is not defined
+2024-07-25 22:38:16,871 - INFO - connection closed
+2024-07-25 22:38:22,684 - INFO - connection open
+2024-07-25 22:38:36,262 - ERROR - connection handler failed
+Traceback (most recent call last):
+  File "C:\Users\johan\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\websockets\legacy\server.py", line 236, in handler
+    await self.ws_handler(self)
+  File "C:\Users\johan\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\websockets\legacy\server.py", line 1175, in _ws_handler
+    return await cast(
+           ^^^^^^^^^^^
+  File "C:\Users\johan\OneDrive\Dokument\PySpeak\Server\server.py", line 70, in handler
+    await process_message(client_id, data)
+  File "C:\Users\johan\OneDrive\Dokument\PySpeak\Server\server.py", line 105, in process_message
+    await handle_edit_room(client_id, data)
+  File "C:\Users\johan\OneDrive\Dokument\PySpeak\Server\server.py", line 315, in handle_edit_room
+    if not await is_admin(client_id):
+                 ^^^^^^^^
+NameError: name 'is_admin' is not defined
+2024-07-25 22:38:36,263 - INFO - connection closed
+2024-07-25 22:38:42,416 - INFO - connection open
+2024-07-25 22:38:46,188 - ERROR - connection handler failed
+Traceback (most recent call last):
+  File "C:\Users\johan\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\websockets\legacy\server.py", line 236, in handler
+    await self.ws_handler(self)
+  File "C:\Users\johan\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\LocalCache\local-packages\Python311\site-packages\websockets\legacy\server.py", line 1175, in _ws_handler
+    return await cast(
+           ^^^^^^^^^^^
+  File "C:\Users\johan\OneDrive\Dokument\PySpeak\Server\server.py", line 70, in handler
+    await process_message(client_id, data)
+  File "C:\Users\johan\OneDrive\Dokument\PySpeak\Server\server.py", line 105, in process_message
+    await handle_edit_room(client_id, data)
+  File "C:\Users\johan\OneDrive\Dokument\PySpeak\Server\server.py", line 315, in handle_edit_room
+    if not await is_admin(client_id):
+                 ^^^^^^^^
+NameError: name 'is_admin' is not defined
+2024-07-25 22:38:46,189 - INFO - connection closed
+2024-07-25 22:42:07,406 - INFO - Server started
+2024-07-25 22:42:07,748 - INFO - server listening on 127.0.0.1:8765
+2024-07-25 22:42:07,748 - INFO - server listening on [::1]:8765
+2024-07-25 22:42:14,370 - INFO - connection open
+2024-07-25 22:42:52,055 - INFO - connection closed
+2024-07-25 22:45:03,624 - INFO - connection open
+2024-07-25 22:45:11,027 - INFO - connection closed
+2024-07-25 22:47:24,047 - INFO - connection open
