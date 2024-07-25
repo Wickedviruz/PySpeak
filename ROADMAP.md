@@ -61,5 +61,4 @@
 
 # Ideas
 - ## Centralized User Database
-
-Instead of having separate databases for each client and server, use a centralized database for user management that can be accessed by all servers and clients.
+- Instead of having separate databases for each client and server, use a centralized database for user management that can be accessed by all servers and clients.
