@@ -6,14 +6,15 @@ import websockets
 import webbrowser
 import sqlite3
 import uuid
+from pynput import keyboard
 from datetime import datetime, timedelta
 from audio import AudioThread
 
 #PyQt imports
 from PyQt5.QtMultimedia import QMediaPlayer,QMediaContent
-from PyQt5.QtWidgets import QMainWindow, QVBoxLayout, QHBoxLayout, QWidget, QListWidget, QListWidgetItem, QPushButton, QTextEdit, QLineEdit, QAction, QSplitter, QDialog, QMenu, QInputDialog, QMessageBox
-from PyQt5.QtGui import QIcon
-from PyQt5.QtCore import Qt, QUrl
+from PyQt5.QtWidgets import QMainWindow, QVBoxLayout, QHBoxLayout, QWidget, QListWidget, QListWidgetItem, QPushButton, QTextEdit, QLineEdit, QAction, QSplitter, QDialog, QLabel, QMenu, QInputDialog, QMessageBox
+from PyQt5.QtGui import QIcon, QPixmap
+from PyQt5.QtCore import Qt, QUrl, QSize
 
 #Local imports
 from dialogs import (
@@ -28,7 +29,14 @@ from dialogs import (
     IdentitiesDialog, 
     UsePrivilegeKey,
     PyLicense)
-from settings import load_bookmarks, save_bookmarks, load_default_identity, db_file
+from settings import load_bookmarks, save_bookmarks, load_default_identity, db_file, load_settings_from_db
+
+class IndentedListItem(QListWidgetItem):
+    def __init__(self, text, icon_path, indent_level=0):
+        super().__init__(text)
+        self.setIcon(QIcon(icon_path))
+        self.setSizeHint(QSize(0, 20))
+        self.setText(f"{' ' * indent_level}{text}")
 
 class VoiceChatClient(QMainWindow):
     def __init__(self):
@@ -42,8 +50,11 @@ class VoiceChatClient(QMainWindow):
         self.connection_info_dialog = None
         self.connection_start_time = None 
         self.ping = 0
+        self.voice_volume = 0 
+        self.sound_pack_volume = 0 
         self.load_bookmarks_from_db()
         self.refresh_bookmarks_menu()
+        self.settings = load_settings_from_db()
         self.current_identity = load_default_identity()
         self.changelog_file = 'changelog.txt'
         self.PyLicense = 'assets/Pylicense.ini'
@@ -266,6 +277,13 @@ class VoiceChatClient(QMainWindow):
         self.speaker_muted = False
         self.log_message("Speaker unmuted")
 
+    def set_voice_volume(self, value):
+        self.voice_volume = value
+
+    def set_sound_pack_volume(self, value):
+        self.sound_pack_volume = value
+        self.media_player.setVolume(int(value))
+
     def reset_audio_stream(self):
         if self.audio_stream is not None:
             try:
@@ -293,7 +311,11 @@ class VoiceChatClient(QMainWindow):
                         print(f"Error writing to stream: {inner_e}")
 
     def start_audio_stream(self):
-        self.audio_thread = AudioThread(self.websocket, asyncio.get_event_loop())
+        push_to_talk = self.settings.get('push_to_talk', False)
+        vad = self.settings.get('vad', False)
+        vad_level = self.settings.get('vad_level', 0)
+        
+        self.audio_thread = AudioThread(self.websocket, asyncio.get_event_loop(), push_to_talk, vad, vad_level)
         self.audio_thread.start()
 
     def stop_audio_stream(self):
@@ -303,7 +325,28 @@ class VoiceChatClient(QMainWindow):
 
     def play_sound(self, sound_file):
         self.media_player.setMedia(QMediaContent(QUrl.fromLocalFile(sound_file)))
+        self.media_player.setVolume(int(self.sound_pack_volume))  # Konvertera till int för setVolume
         self.media_player.play()
+
+    #push to talk funktion
+    def set_push_to_talk_hotkey(self, hotkey):
+        self.push_to_talk_hotkey = hotkey
+        self.listener = keyboard.Listener(on_press=self.on_press, on_release=self.on_release)
+        self.listener.start()
+
+    def on_press(self, key):
+        try:
+            if key.char == self.push_to_talk_hotkey:
+                self.audio_thread.unmute_mic()
+        except AttributeError:
+            pass
+
+    def on_release(self, key):
+        try:
+            if key.char == self.push_to_talk_hotkey:
+                self.audio_thread.mute_mic()
+        except AttributeError:
+            pass
 
     #Connect dialog for connecting to a server
     def show_connect_dialog(self):
@@ -364,7 +407,6 @@ class VoiceChatClient(QMainWindow):
         print(f"Connecting to {bookmark['name']} at {bookmark['address']}")
         uid = self.current_identity['uid']  # Använd UID från den aktuella identiteten
         asyncio.ensure_future(self.connect_to_server(bookmark['address'], bookmark['password'], bookmark['nickname'], uid))
-
 
     def add_bookmark(self):
         if self.websocket:
@@ -477,14 +519,14 @@ class VoiceChatClient(QMainWindow):
                             self.current_role = data['role']
                     elif data['type'] == 'message':
                         self.log_message(f"{data['username']}: {data['message']}")
-                    elif data['type'] == 'room_update':
-                        self.update_room_members(data['members'])
+                    #elif data['type'] == 'room_update':
+                        #self.update_room_members(data['members'])
                     elif data['type'] == 'room_list':
                         self.update_room_list(data)
                     elif data['type'] == 'error':
                         self.log_message(f"Error: {data['message']}")
                     elif data['type'] == 'talking':
-                        self.update_talking_status(data['username'], data['status'])
+                        self.handle_talking(data['username'], data['status'])
                     elif data['type'] == 'ping':
                         self.ping = data['ping']
                     elif data['type'] == 'switched_room':
@@ -557,6 +599,13 @@ class VoiceChatClient(QMainWindow):
             }
         return {}
 
+    def update_user_info(self, user_info):
+        self.userInfo.clear()
+        self.userInfo.addItem(QListWidgetItem(f"Username: {user_info['username']}"))
+        self.userInfo.addItem(QListWidgetItem(f"Role: {user_info['role']}"))
+        self.userInfo.addItem(QListWidgetItem(f"UID: {user_info['uid']}"))
+        self.userInfo.addItem(QListWidgetItem(f"Status: {'Talking' if user_info['talking'] else 'Silent'}"))
+
     def update_statistics(self, message_type, packet_size):
         """Update statistics based on the message type and packet size."""
         self.statistics["total"]["packets_transferred"] += 1
@@ -565,26 +614,27 @@ class VoiceChatClient(QMainWindow):
             self.statistics[message_type]["packets_transferred"] += 1
             self.statistics[message_type]["bytes_transferred"] += packet_size
 
-    def update_talking_status(self, username, is_talking):
-        for i in range(self.userInfo.count()):
-            item = self.userInfo.item(i)
-            if item.text().strip() == username:
-                icon = QIcon('assets/img/talking_icon.png') if is_talking else QIcon('assets/img/nottalking_icon.png')
-                item.setIcon(icon)
+    def handle_talking(self, username, is_talking):
+        for index in range(self.userList.count()):
+            item = self.userList.item(index)
+            if item.text() == username:
+                if is_talking:
+                    item.setIcon(QIcon('assets/img/default_colored_2014/player_on.svg'))
+                else:
+                    item.setIcon(QIcon('assets/img/default_colored_2014/player_off.svg'))
                 break
 
     #Updates rooms and members
-    def update_room_members(self, members):
-        self.userInfo.clear()
-        for member in members:
-            item = QListWidgetItem(member['username'])
-            item.setIcon(QIcon('assets/img/default_colored_2014/player_off.svg'))
-            self.userInfo.addItem(item)
+    #def update_room_members(self, members):
+        #self.userInfo.clear()
+        #for member in members:
+            #item = QListWidgetItem(member['username'])
+            #item.setIcon(QIcon('assets/img/default_colored_2014/player_off.svg'))
+            #self.userInfo.addItem(item)
 
     def update_room_list(self, data):
         self.room_list = data['rooms']
         self.server_name = data.get('server_name', 'Unknown Server')
-        self.user_info = data.get('user_info', {})
         self.roomList.clear()
 
         # Lägg till servernamn högst upp
@@ -598,11 +648,12 @@ class VoiceChatClient(QMainWindow):
             room_item = QListWidgetItem(f"  {room}")
             room_item.setIcon(room_icon)
             self.roomList.addItem(room_item)
+
             for user in room_data['members']:
-                user_item = QListWidgetItem(f"    {user}")
+                user_item = QListWidgetItem(f"      {user}")
                 user_item.setIcon(QIcon('assets/img/default_colored_2014/player_off.svg'))
                 self.roomList.addItem(user_item)
-
+                
     def switch_room(self, item):
         room_name = item.text().strip()
         current_usernames = [self.current_username] + [user_item.text().strip() for user_item in self.userInfo.findItems(self.current_username, Qt.MatchExactly)]
@@ -626,25 +677,60 @@ class VoiceChatClient(QMainWindow):
         if not item:
             return
 
+        item_type = item.data(Qt.UserRole)
+
         menu = QMenu()
 
-        create_channel_action = QAction('Create Channel', self)
-        create_channel_action.triggered.connect(self.create_channel)
-        delete_channel_action = QAction('Delete Channel', self)
-        delete_channel_action.triggered.connect(self.delete_channel)
-        edit_channel_action = QAction('Edit Channel', self)
-        edit_channel_action.triggered.connect(self.edit_channel)
+        if item_type == "room":
+            create_channel_action = QAction('Create Channel', self)
+            create_channel_action.triggered.connect(self.create_channel)
+            delete_channel_action = QAction('Delete Channel', self)
+            delete_channel_action.triggered.connect(lambda: self.delete_channel(item.text()))
+            edit_channel_action = QAction('Edit Channel', self)
+            edit_channel_action.triggered.connect(lambda: self.edit_channel(item.text()))
 
-        if self.current_role != 'admin' and self.current_role != 'superadmin':
-            create_channel_action.setDisabled(True)
-            delete_channel_action.setDisabled(True)
-            edit_channel_action.setDisabled(True)
+            if self.current_role != 'admin' and self.current_role != 'superadmin':
+                create_channel_action.setDisabled(True)
+                delete_channel_action.setDisabled(True)
+                edit_channel_action.setDisabled(True)
 
-        menu.addAction(create_channel_action)
-        menu.addAction(delete_channel_action)
-        menu.addAction(edit_channel_action)
+            menu.addAction(create_channel_action)
+            menu.addAction(delete_channel_action)
+            menu.addAction(edit_channel_action)
+
+        elif item_type == "user":
+            kick_action = QAction('Kick User', self)
+            kick_action.triggered.connect(lambda: self.kick_user(item.text().strip()))
+            ban_action = QAction('Ban User', self)
+            ban_action.triggered.connect(lambda: self.ban_user(item.text().strip()))
+            move_action = QAction('Move User', self)
+            move_action.triggered.connect(lambda: self.move_user(item.text().strip()))
+
+            if self.current_role != 'admin' and self.current_role != 'superadmin':
+                kick_action.setDisabled(True)
+                ban_action.setDisabled(True)
+                move_action.setDisabled(True)
+
+            menu.addAction(kick_action)
+            menu.addAction(ban_action)
+            menu.addAction(move_action)
 
         menu.exec_(self.roomList.viewport().mapToGlobal(position))
+
+    def ban_user(self, username):
+        reply = QMessageBox.question(self, 'Ban User', f"Are you sure you want to ban {username}?", QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+        if reply == QMessageBox.Yes:
+            asyncio.ensure_future(self.websocket.send(json.dumps({'type': 'ban', 'username': username})))
+
+    def kick_user(self, username):
+        reply = QMessageBox.question(self, 'Kick User', f"Are you sure you want to kick {username}?", QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+        if reply == QMessageBox.Yes:
+            asyncio.ensure_future(self.websocket.send(json.dumps({'type': 'kick', 'username': username})))
+
+    def move_user(self, username):
+        room_name, ok = QInputDialog.getText(self, 'Move User', f'Enter the room to move {username} to:')
+        if ok and room_name:
+            asyncio.ensure_future(self.websocket.send(json.dumps({'type': 'move_user', 'username': username, 'room_name': room_name})))
 
     def create_channel(self):
         room_name, ok = QInputDialog.getText(self, 'Create Room', 'Enter room name:')
@@ -654,14 +740,14 @@ class VoiceChatClient(QMainWindow):
                 asyncio.ensure_future(self.websocket.send(json.dumps({'type': 'create_channel', 'room_name': room_name, 'room_password': password})))
 
     def edit_channel(self, room_name):
-        password, ok = QInputDialog.getText(self, 'Edit Room', 'Enter new room password (leave blank to remove):')
+        password, ok = QInputDialog.getText(self, f'Edit Room "{room_name}"', 'Enter new room password (leave blank to remove):')
         if ok:
-            asyncio.ensure_future(self.websocket.send(json.dumps({'type': 'delete_channel', 'room_name': room_name, 'room_password': password})))
+            asyncio.ensure_future(self.websocket.send(json.dumps({'type': 'edit_channel', 'room_name': room_name, 'room_password': password})))
 
     def delete_channel(self, room_name):
-        reply = QMessageBox.question(self, 'Delete Room', f"Are you sure you want to delete the room '{room_name}'?", QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+        reply = QMessageBox.question(self, f'Delete Room "{room_name}"', f"Are you sure you want to delete the room '{room_name}'?", QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
         if reply == QMessageBox.Yes:
-            asyncio.ensure_future(self.websocket.send(json.dumps({'type': 'edit_channel', 'room_name': room_name})))
+            asyncio.ensure_future(self.websocket.send(json.dumps({'type': 'delete_channel', 'room_name': room_name})))
 
     def is_admin(self):
         return self.role in ('admin', 'superadmin')

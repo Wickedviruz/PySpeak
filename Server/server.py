@@ -117,6 +117,8 @@ async def process_message(client_id, data):
         await handle_kick(client_id, data)
     elif message_type == 'use_privilege_key':
         await handle_use_privilege_key(client_id, data)
+    elif message_type == 'move_user':
+        await handle_move_user(client_id, data)
 
 async def handle_join(client_id, data, first_time=False):
     username = data['username']
@@ -312,12 +314,18 @@ async def handle_create_room(client_id, data):
     conn.close()
 
 async def handle_edit_room(client_id, data):
+    logging.info(f"handle_edit_room: Received data: {data}")
     if not await is_admin(client_id):
         await clients[client_id]['websocket'].send(json.dumps({'type': 'error', 'message': 'You do not have permission to edit rooms.'}))
         return
 
-    room_name = data['room_name']
+    room_name = data.get('room_name')
     room_password = data.get('room_password', None)
+    
+    if not room_name:
+        await clients[client_id]['websocket'].send(json.dumps({'type': 'error', 'message': 'Invalid room name.'}))
+        return
+    
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM rooms WHERE name=?", (room_name,))
@@ -333,11 +341,17 @@ async def handle_edit_room(client_id, data):
     conn.close()
 
 async def handle_delete_room(client_id, data):
+    logging.info(f"handle_delete_room: Received data: {data}")
     if not await is_admin(client_id):
         await clients[client_id]['websocket'].send(json.dumps({'type': 'error', 'message': 'You do not have permission to delete rooms.'}))
         return
 
-    room_name = data['room_name']
+    room_name = data.get('room_name')
+    
+    if not room_name:
+        await clients[client_id]['websocket'].send(json.dumps({'type': 'error', 'message': 'Invalid room name.'}))
+        return
+    
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM rooms WHERE name=?", (room_name,))
@@ -351,7 +365,6 @@ async def handle_delete_room(client_id, data):
     else:
         await clients[client_id]['websocket'].send(json.dumps({'type': 'error', 'message': f"Room {room_name} does not exist."}))
     conn.close()
-
 
 async def handle_ban(client_id, data):
     if not await is_admin(client_id):
@@ -386,7 +399,6 @@ async def handle_kick(client_id, data):
         return
 
     username_to_kick = data['username']
-    reason = data.get('reason', 'No reason provided')
 
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -402,6 +414,53 @@ async def handle_kick(client_id, data):
             await clients[user_uid_to_kick]['websocket'].close()
     else:
         await clients[client_id]['websocket'].send(json.dumps({'type': 'error', 'message': f"User {username_to_kick} not found."}))
+    conn.close()
+
+async def handle_move_user(client_id, data):
+    if not await is_admin(client_id):
+        await clients[client_id]['websocket'].send(json.dumps({'type': 'error', 'message': 'You do not have permission to move users.'}))
+        return
+
+    username_to_move = data['username']
+    new_room_name = data['room_name']
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT uid FROM users WHERE username=?", (username_to_move,))
+    user_uid_to_move = cursor.fetchone()
+
+    if user_uid_to_move:
+        user_uid_to_move = user_uid_to_move[0]
+        if user_uid_to_move in clients:
+            await handle_switch_room(user_uid_to_move, {'new_room': new_room_name})
+            await clients[client_id]['websocket'].send(json.dumps({'type': 'info', 'message': f"{username_to_move} has been moved to {new_room_name}."}))
+        else:
+            await clients[client_id]['websocket'].send(json.dumps({'type': 'error', 'message': f"User {username_to_move} is not online."}))
+    else:
+        await clients[client_id]['websocket'].send(json.dumps({'type': 'error', 'message': f"User {username_to_move} not found."}))
+    conn.close()
+
+    if not await is_admin(client_id):
+        await clients[client_id]['websocket'].send(json.dumps({'type': 'error', 'message': 'You do not have permission to move users.'}))
+        return
+
+    username_to_move = data['username']
+    new_room_name = data['room_name']
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT uid FROM users WHERE username=?", (username_to_move,))
+    user_uid_to_move = cursor.fetchone()
+
+    if user_uid_to_move:
+        user_uid_to_move = user_uid_to_move[0]
+        if user_uid_to_move in clients:
+            await handle_switch_room(user_uid_to_move, {'new_room': new_room_name})
+            await clients[client_id]['websocket'].send(json.dumps({'type': 'info', 'message': f"{username_to_move} has been moved to {new_room_name}."}))
+        else:
+            await clients[client_id]['websocket'].send(json.dumps({'type': 'error', 'message': f"User {username_to_move} is not online."}))
+    else:
+        await clients[client_id]['websocket'].send(json.dumps({'type': 'error', 'message': f"User {username_to_move} not found."}))
     conn.close()
 
 async def handle_use_privilege_key(client_id, data):

@@ -5,6 +5,7 @@ import secrets
 import logging
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QVBoxLayout,
                              QWidget, QTextEdit, QLabel, QLineEdit, QGridLayout)
+from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import QTimer
 import hashlib
 import asyncio
@@ -24,6 +25,7 @@ class ServerGUI(QMainWindow):
 
     def initUI(self):
         self.setWindowTitle('PySpeak Server')
+        self.setWindowIcon(QIcon('assets/img/icon.png'))
         self.setGeometry(100, 100, 600, 400)
 
         mainLayout = QVBoxLayout()

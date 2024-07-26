@@ -6,7 +6,7 @@ import json
 from PyQt5.QtCore import QThread
 
 class AudioThread(QThread):
-    def __init__(self, websocket, loop):
+    def __init__(self, websocket, loop, push_to_talk=False, vad=False, vad_level=0):
         super().__init__()
         self.websocket = websocket
         self.pyaudio_instance = pyaudio.PyAudio()
@@ -21,6 +21,9 @@ class AudioThread(QThread):
         self.silence_threshold = 300
         self.silent_frames = collections.deque(maxlen=self.silence_threshold)
         self.mic_muted = False
+        self.push_to_talk = push_to_talk
+        self.vad = vad
+        self.vad_level = vad_level
 
     def run(self):
         talking = False

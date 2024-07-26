@@ -27,7 +27,8 @@ from PyQt5.QtWidgets import (
     QStyleOptionSlider,
     QStyle,
     QLabel,
-    QTabWidget)
+    QTabWidget,
+    QInputDialog)
 
 #Connections tab
 class ConnectDialog(QDialog):
@@ -418,17 +419,19 @@ class SettingsDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle("Settings")
         self.setGeometry(100, 100, 800, 600)
-        self.initUI()
-        self.load_settings()
+        self.client = parent
         self.pyaudio_instance = pyaudio.PyAudio()
         self.is_testing = False
         self.stream_in = None
         self.stream_out = None
         self.audio_test_thread = None
 
-    def initUI(self):
-        main_layout = QVBoxLayout(self)
+        self.main_layout = QVBoxLayout(self)
+        self.setLayout(self.main_layout)  # Flytta denna rad till konstruktorn
+        self.initUI()
+        self.load_settings()
 
+    def initUI(self):
         # Main layout split into left (categories) and right (settings pages)
         content_layout = QHBoxLayout()
 
@@ -437,11 +440,11 @@ class SettingsDialog(QDialog):
         content_layout.addWidget(self.category_list, 1)
 
         playback_item = QListWidgetItem("Playback")
-        playback_item.setIcon(QIcon('assets/img/default_colored_2014/capture.svg'))
+        playback_item.setIcon(QIcon('assets/img/default_colored_2014/volume.svg'))
         self.category_list.addItem(playback_item)
 
         capture_item = QListWidgetItem("Capture")
-        capture_item.setIcon(QIcon('assets/img/default_colored_2014/volume.svg'))
+        capture_item.setIcon(QIcon('assets/img/default_colored_2014/capture.svg'))
         self.category_list.addItem(capture_item)
 
         # Right side: Stack of settings pages
@@ -455,22 +458,18 @@ class SettingsDialog(QDialog):
         self.capture_page = self.create_capture_page()
         self.settings_stack.addWidget(self.capture_page)
 
-        # Add more pages as needed...
-
         content_layout.addWidget(self.settings_stack, 3)
 
         # Connect list selection to stack widget
         self.category_list.currentRowChanged.connect(self.settings_stack.setCurrentIndex)
 
-        main_layout.addLayout(content_layout)
+        self.main_layout.addLayout(content_layout)
 
         # OK and Cancel buttons
         button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         button_box.accepted.connect(self.save_settings)
         button_box.rejected.connect(self.reject)
-        main_layout.addWidget(button_box)
-
-        self.setLayout(main_layout)
+        self.main_layout.addWidget(button_box)
 
     def create_playback_page(self):
         page = QWidget()
@@ -492,10 +491,13 @@ class SettingsDialog(QDialog):
         self.volume_adjustment_slider = QSlider(Qt.Horizontal)
         self.volume_adjustment_slider.setRange(-40, 20)
         self.volume_adjustment_slider.setValue(0)
+        self.volume_adjustment_slider.valueChanged.connect(self.update_voice_volume)
         form_layout.addRow("Voice Volume Adjustment:", self.volume_adjustment_slider)
 
         self.sound_pack_volume_slider = QSlider(Qt.Horizontal)
-        self.sound_pack_volume_slider.setRange(-40, 20)
+        self.sound_pack_volume_slider.setRange(0, 100)
+        self.sound_pack_volume_slider.setValue(50)
+        self.sound_pack_volume_slider.valueChanged.connect(self.update_sound_pack_volume)
         form_layout.addRow("Sound Pack Volume:", self.sound_pack_volume_slider)
 
         layout.addLayout(form_layout)
@@ -556,16 +558,20 @@ class SettingsDialog(QDialog):
         activation_layout = QVBoxLayout()
 
         self.push_to_talk_radio = QRadioButton("Push-To-Talk")
+        self.push_to_talk_radio.toggled.connect(self.update_activation_mode)
         push_to_talk_layout = QHBoxLayout()
         push_to_talk_layout.addWidget(self.push_to_talk_radio)
         self.hotkey_button = QPushButton("No Hotkey Assigned")
+        self.hotkey_button.setEnabled(False)  # Disabled initially
         push_to_talk_layout.addWidget(self.hotkey_button)
         activation_layout.addLayout(push_to_talk_layout)
 
         self.continuous_transmission_radio = QRadioButton("Continuous Transmission")
+        self.continuous_transmission_radio.toggled.connect(self.update_activation_mode)
         activation_layout.addWidget(self.continuous_transmission_radio)
 
         self.vad_radio = QRadioButton("Voice Activity Detection")
+        self.vad_radio.toggled.connect(self.update_activation_mode)
         vad_layout = QHBoxLayout()
         vad_layout.addWidget(self.vad_radio)
         self.vad_mode_combo = QComboBox()
@@ -575,12 +581,14 @@ class SettingsDialog(QDialog):
 
         # VAD Test Section
         vad_test_layout = QVBoxLayout()
-        self.vad_slider = CustomSlider(Qt.Horizontal)
+        self.vad_slider = QSlider(Qt.Horizontal)
         self.vad_slider.setRange(-50, 50)
         self.vad_slider.setValue(0)
+        self.vad_slider.setEnabled(False)  # Disabled initially
         vad_test_layout.addWidget(self.vad_slider)
 
         self.begin_test_button = QPushButton("Begin Test")
+        self.begin_test_button.setEnabled(False)  # Disabled initially
         self.begin_test_button.clicked.connect(self.begin_test)
         vad_test_layout.addWidget(self.begin_test_button)
 
@@ -614,6 +622,7 @@ class SettingsDialog(QDialog):
 
         return page
 
+
     def populate_audio_devices(self, combo_box, input=True):
         p = pyaudio.PyAudio()
         info = p.get_host_api_info_by_index(0)
@@ -627,6 +636,28 @@ class SettingsDialog(QDialog):
                 combo_box.addItem(device_info.get('name'))
 
         p.terminate()
+
+    def update_activation_mode(self):
+        if self.push_to_talk_radio.isChecked():
+            self.hotkey_button.setEnabled(True)
+            self.hotkey_button.clicked.connect(self.assign_hotkey)
+            self.vad_slider.setEnabled(False)
+            self.begin_test_button.setEnabled(False)
+        elif self.continuous_transmission_radio.isChecked():
+            self.hotkey_button.setEnabled(False)
+            self.vad_slider.setEnabled(False)
+            self.begin_test_button.setEnabled(False)
+        elif self.vad_radio.isChecked():
+            self.hotkey_button.setEnabled(False)
+            self.vad_slider.setEnabled(True)
+            self.begin_test_button.setEnabled(True)
+
+    def assign_hotkey(self):
+        hotkey, ok = QInputDialog.getText(self, 'Assign Hotkey', 'Press the key you want to assign as Push-to-Talk hotkey:')
+        if ok and hotkey:
+            self.hotkey_button.setText(hotkey)
+            self.client.set_push_to_talk_hotkey(hotkey)
+
 
     def play_test_sound(self):
         wf = wave.open("assets/sound/test_sound.wav", 'rb')
@@ -660,11 +691,9 @@ class SettingsDialog(QDialog):
         stream.stop_stream()
         stream.close()
 
-    def adjust_volume(self, data):
+    def adjust_volume(self, data, volume_db):
         volume_db = self.volume_adjustment_slider.value()
-        volume_factor = 10 ** (volume_db / 20.0)
-
-        # Convert byte data to numpy array, adjust volume, and convert back to bytes
+        volume_factor = 10 ** (volume_db / 50.0)
         audio_data = np.frombuffer(data, dtype=np.int16)
         audio_data = (audio_data * volume_factor).astype(np.int16)
         return audio_data.tobytes()
@@ -718,6 +747,12 @@ class SettingsDialog(QDialog):
             self.stream_out.stop_stream()
             self.stream_out.close()
 
+    def update_voice_volume(self, value):
+        self.client.set_voice_volume(value)
+
+    def update_sound_pack_volume(self, value):
+        self.client.set_sound_pack_volume(value)
+
     def save_settings(self):
         settings = {
             "playback_mode": self.playback_mode_combo.currentText(),
@@ -739,7 +774,8 @@ class SettingsDialog(QDialog):
             "typing_att": self.typing_att_checkbox.isChecked(),
             "remove_noise": self.remove_noise_checkbox.isChecked(),
             "echo_cancel": self.echo_cancel_checkbox.isChecked(),
-            "echo_reduction": self.echo_reduction_checkbox.isChecked()
+            "echo_reduction": self.echo_reduction_checkbox.isChecked(),
+            "hotkey": self.hotkey_button.text()
         }
 
         save_settings_to_db(settings)
@@ -752,7 +788,7 @@ class SettingsDialog(QDialog):
             self.playback_mode_combo.setCurrentText(settings.get("playback_mode", "Automatically use best mode"))
             self.playback_device_combo.setCurrentText(settings.get("playback_device", "Default"))
             self.volume_adjustment_slider.setValue(settings.get("volume_adjustment", 0))
-            self.sound_pack_volume_slider.setValue(settings.get("sound_pack_volume", 0))
+            self.sound_pack_volume_slider.setValue(settings.get("sound_pack_volume", 50))
             self.auto_volume_checkbox.setChecked(settings.get("auto_volume", False))
             self.mic_clicks_checkbox.setChecked(settings.get("mic_clicks", False))
             self.mono_stereo_radio.setChecked(settings.get("mono_stereo", True))
@@ -769,8 +805,13 @@ class SettingsDialog(QDialog):
             self.remove_noise_checkbox.setChecked(settings.get("remove_noise", True))
             self.echo_cancel_checkbox.setChecked(settings.get("echo_cancel", True))
             self.echo_reduction_checkbox.setChecked(settings.get("echo_reduction", False))
+            
+            self.hotkey_button.setText(settings.get("hotkey", "No Hotkey Assigned"))
+            
+            self.update_activation_mode()
         except Exception as e:
             print(f"Failed to load settings: {str(e)}")
+
 
 class PasswordDialog(QDialog):
     def __init__(self, room_name, parent=None):
